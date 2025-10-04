@@ -20,11 +20,10 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "test": "jest --coverage",
+    "lint": "eslint ./src ./tests",
+    "check": "npm run lint && npm run test",
+    "lint:fix": "eslint src tests --fix",
     "prepublishOnly": "npm run build",
     "clean": "rm -rf dist"
   },
