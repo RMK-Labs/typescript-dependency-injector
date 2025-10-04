@@ -5,12 +5,12 @@ export interface Provider<T> {
 }
 
 export class Factory<T> implements Provider<T> {
-  private injectedArgs: any[];
+  private injectedArgs: unknown[];
   private [PROVIDER_SYMBOL] = true;
 
   constructor(
     private factory: new (...args: any[]) => T,
-    ...injectedArgs: any[]
+    ...injectedArgs: unknown[]
   ) {
     this.injectedArgs = injectedArgs;
   }
@@ -35,7 +35,7 @@ export class Singleton<T> extends Factory<T> {
 /**
  * Type guard to check if a value is one of our Provider instances
  */
-function isProvider(value: any): value is Provider<any> {
+function isProvider(value: unknown): value is Provider<unknown> {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -54,10 +54,10 @@ function isProvider(value: any): value is Provider<any> {
  * @returns The value with all Provider instances resolved via their provide() method
  */
 function resolveProviders(
-  value: any,
+  value: unknown,
   seen: WeakSet<object> = new WeakSet(),
-  resolved: WeakMap<object, any> = new WeakMap()
-): any {
+  resolved: WeakMap<object, unknown> = new WeakMap()
+): unknown {
   // Handle null and undefined
   if (value === null || value === undefined) {
     return value;
@@ -104,7 +104,7 @@ function resolveProviders(
 
   // Handle Arrays
   if (Array.isArray(value)) {
-    const resolvedArray: any[] = [];
+    const resolvedArray: unknown[] = [];
     resolved.set(value, resolvedArray);
     for (const item of value) {
       resolvedArray.push(resolveProviders(item, seen, resolved));
@@ -137,7 +137,8 @@ function resolveProviders(
 
   // Only traverse plain objects (not class instances)
   // Class instances should be passed through as-is
-  const proto = Object.getPrototypeOf(value);
+  // At this point, we know value is an object (passed all previous checks)
+  const proto: unknown = Object.getPrototypeOf(value);
   const isPlainObject = proto === Object.prototype || proto === null;
 
   if (!isPlainObject) {
@@ -146,10 +147,11 @@ function resolveProviders(
   }
 
   // Handle plain objects - traverse and resolve their properties
-  const resolvedObj: any = {};
+  const resolvedObj: Record<string, unknown> = {};
   resolved.set(value, resolvedObj);
   for (const key of Object.keys(value)) {
-    resolvedObj[key] = resolveProviders(value[key], seen, resolved);
+    // We know value is an object at this point, so we can safely index it
+    resolvedObj[key] = resolveProviders((value as Record<string, unknown>)[key], seen, resolved);
   }
   seen.delete(value);
   return resolvedObj;
