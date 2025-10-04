@@ -4,14 +4,24 @@ export interface Provider<T> {
   provide: (...args: any[]) => T;
 }
 
-export class Factory<T> implements Provider<T> {
-  private injectedArgs: unknown[];
+export abstract class BaseProvider<T> implements Provider<T> {
   private [PROVIDER_SYMBOL] = true;
+
+  abstract provide(...args: any[]): T;
+
+  get provider(): Delegate<T> {
+    return new Delegate(this);
+  }
+}
+
+export class Factory<T> extends BaseProvider<T> {
+  private injectedArgs: unknown[];
 
   constructor(
     private factory: new (...args: any[]) => T,
     ...injectedArgs: unknown[]
   ) {
+    super();
     this.injectedArgs = injectedArgs;
   }
 
@@ -29,6 +39,16 @@ export class Singleton<T> extends Factory<T> {
       this.instance = super.provide(...args);
     }
     return this.instance;
+  }
+}
+
+export class Delegate<T> extends BaseProvider<Provider<T>> {
+  constructor(private readonly delegatedProvider: Provider<T>) {
+    super();
+  }
+
+  provide(): Provider<T> {
+    return this.delegatedProvider;
   }
 }
 
