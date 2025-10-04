@@ -15,11 +15,11 @@ export abstract class BaseProvider<T> implements Provider<T> {
 }
 
 export class Factory<T> extends BaseProvider<T> {
-  private injectedArgs: unknown[];
+  private injectedArgs: any[];
 
   constructor(
     private factory: new (...args: any[]) => T,
-    ...injectedArgs: unknown[]
+    ...injectedArgs: any[]
   ) {
     super();
     this.injectedArgs = injectedArgs;
