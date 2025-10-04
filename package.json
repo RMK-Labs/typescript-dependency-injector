@@ -1,5 +1,5 @@
 {
-  "name": "@rmk-labs/dependency-injector",
+  "name": "@rmk-labs/typescript-dependency-injector",
   "version": "0.1.0",
   "description": "Dependency injection framework for TypeScript",
   "main": "./dist/index.js",
