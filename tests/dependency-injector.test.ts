@@ -343,12 +343,15 @@ describe("Dependency Injector - Auto Provider Resolution", () => {
       }
 
       const circularObj: any = { name: "test" };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
       circularObj.self = circularObj;
 
       const serviceFactory = new Factory(Service, circularObj);
       const service = serviceFactory.provide();
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(service.config.name).toBe("test");
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(service.config.self).toBe(service.config);
     });
 
@@ -385,7 +388,7 @@ describe("Dependency Injector - Auto Provider Resolution", () => {
       }
 
       class Cache {
-        get(key: string): string | null {
+        get(_key: string): string | null {
           return null;
         }
       }
@@ -454,7 +457,7 @@ describe("Dependency Injector - Auto Provider Resolution", () => {
         provide(): string {
           return "third-party-data";
         }
-        send(command: any): string {
+        send(_command: any): string {
           return "sent";
         }
       }

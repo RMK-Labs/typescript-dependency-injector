@@ -1,7 +1,7 @@
 const PROVIDER_SYMBOL = Symbol("@@Provider");
 
 export interface Provider<T> {
-  provide: (...args: unknown[]) => T;
+  provide: (...args: any[]) => T;
 }
 
 export class Factory<T> implements Provider<T> {
@@ -9,14 +9,13 @@ export class Factory<T> implements Provider<T> {
   private [PROVIDER_SYMBOL] = true;
 
   constructor(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private factory: new (...args: any[]) => T,
     ...injectedArgs: unknown[]
   ) {
     this.injectedArgs = injectedArgs;
   }
 
-  provide(...args: unknown[]): T {
+  provide(...args: any[]): T {
     const resolvedArgs = this.injectedArgs.map((arg) => resolveProviders(arg));
     return new this.factory(...args, ...resolvedArgs);
   }
@@ -25,7 +24,7 @@ export class Factory<T> implements Provider<T> {
 export class Singleton<T> extends Factory<T> {
   private instance: T | null = null;
 
-  provide(...args: unknown[]): T {
+  provide(...args: any[]): T {
     if (this.instance === null) {
       this.instance = super.provide(...args);
     }
