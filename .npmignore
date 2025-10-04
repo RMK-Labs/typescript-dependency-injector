@@ -1,0 +1,32 @@
+# Source files
+src/
+tests/
+**/*.test.ts
+**/*.spec.ts
+
+# Configuration files
+tsconfig.json
+jest.config.js
+eslint.config.mjs
+.prettierrc
+
+# Development files
+.github/
+.vscode/
+.idea/
+*.log
+coverage/
+.nyc_output/
+node_modules/
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Misc
+*.tmp
+.DS_Store
+
+# Cursor
+.cursor/
