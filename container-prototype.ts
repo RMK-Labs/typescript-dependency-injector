@@ -23,6 +23,11 @@ function StaticMirrorProviders<TCtor extends Constructor>(ctor: TCtor): WithStat
 class Factory<T> implements Provider<T> { readonly kind = "Factory" as const; constructor(public target: new (...a:any)=>T, public args:any) {} create() { return new this.target(this.args); } }
 class Singleton<T> implements Provider<T> { readonly kind = "Singleton" as const; private _i?:T; constructor(public target:new(...a:any)=>T, public deps?:any) {} get instance(){ return this._i ??= new this.target(this.deps);} }
 
+// --- Provide helper for type-safe default parameters ---
+function Provide<T>(provider: Provider<T>): T {
+  return provider as any;
+}
+
 // --- domain ---
 class DatabaseConfig { constructor(public host:string, public port:number, public database:string) {} }
 class CacheConfig { constructor(public ttl:number, public maxSize:number) {} }
@@ -57,6 +62,9 @@ console.log(c.database.instance === c2.database.instance);
 
 console.log(c2.database.instance === c2.database.instance);
 
-// function main(database: Database = Provide[Container.database]) {
+function main(database: Database = Provide(Container.database)) {
+  console.log(database);
 
-// }
+}
+
+main();
