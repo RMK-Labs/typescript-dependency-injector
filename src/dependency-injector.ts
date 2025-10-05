@@ -14,7 +14,7 @@ export abstract class BaseProvider<T> implements Provider<T> {
   }
 }
 
-export class Factory<T> extends BaseProvider<T> {
+export class Factory<T, ProvideArgs extends any[] = any[]> extends BaseProvider<T> {
   private injectedArgs: any[];
 
   constructor(
@@ -25,16 +25,16 @@ export class Factory<T> extends BaseProvider<T> {
     this.injectedArgs = injectedArgs;
   }
 
-  provide(...args: any[]): T {
+  provide(...args: ProvideArgs): T {
     const resolvedArgs = this.injectedArgs.map((arg) => resolveProviders(arg));
     return new this.factory(...args, ...resolvedArgs);
   }
 }
 
-export class Singleton<T> extends Factory<T> {
+export class Singleton<T, ProvideArgs extends any[] = any[]> extends Factory<T, ProvideArgs> {
   private instance: T | null = null;
 
-  provide(...args: any[]): T {
+  provide(...args: ProvideArgs): T {
     if (this.instance === null) {
       this.instance = super.provide(...args);
     }
