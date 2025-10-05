@@ -124,9 +124,10 @@ console.log(c2.database.instance === c2.database.instance);
 class Program {
   main(
     args: any[],
-    @inject(Container.database) database: Database,
+    @inject(Container.database) database: Database = Provide(Container.database),
   ) {
     console.log(args, database);
+    console.log(database);
   }
 }
 
@@ -137,5 +138,5 @@ function introspectProvide(p: Program) {
 }
 
 const p = new Program();
-p.main([1, 2, 3], "Database" as any);
+p.main([1, 2, 3]);
 introspectProvide(p);
