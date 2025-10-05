@@ -1,3 +1,4 @@
+export {};
 // --- types & decorator from before ---
 type Constructor<T = object> = new (...args: any[]) => T;
 
@@ -26,6 +27,64 @@ class Singleton<T> implements Provider<T> { readonly kind = "Singleton" as const
 // --- Provide helper for type-safe default parameters ---
 function Provide<T>(provider: Provider<T>): T {
   return provider as any;
+}
+
+// --- minimal DI metadata: parameter @inject markers ---
+const TOKEN_IDS = new WeakMap<object, symbol>();
+const PARAM_INJECT_IDS = new WeakMap<Function, Map<number, symbol>>();
+
+function getTokenId(token: object): symbol {
+  let id = TOKEN_IDS.get(token);
+  if (!id) {
+    id = Symbol("di:token");
+    TOKEN_IDS.set(token, id);
+  }
+  return id;
+}
+
+function resolveDecoratedFunction(target: any, propertyKey: string | symbol | undefined): Function | undefined {
+  if (propertyKey != null && target) {
+    return (target as any)[propertyKey];
+  }
+  if (typeof target === "function") {
+    // constructor parameter decorator case
+    return target as unknown as Function;
+  }
+  // Note: top-level function parameter decorators are not standard; this is a prototype.
+  return undefined;
+}
+
+function inject(token: object) {
+  const tokenId = getTokenId(token);
+  return function (_target: any, _propertyKey: string | symbol | undefined, parameterIndex: number) {
+    const fn = resolveDecoratedFunction(_target, _propertyKey);
+    if (!fn) return;
+    let map = PARAM_INJECT_IDS.get(fn);
+    if (!map) {
+      map = new Map<number, symbol>();
+      PARAM_INJECT_IDS.set(fn, map);
+    }
+    map.set(parameterIndex, tokenId);
+  };
+}
+
+function getInjectedParamIds(fn: Function): ReadonlyMap<number, symbol> | undefined {
+  return PARAM_INJECT_IDS.get(fn);
+}
+
+function getMarkerFor(token: object): symbol {
+  return getTokenId(token);
+}
+
+// Helper to attach injection metadata to standalone functions' parameters
+function markFunctionParam(fn: Function, parameterIndex: number, token: object): void {
+  const tokenId = getTokenId(token);
+  let map = PARAM_INJECT_IDS.get(fn);
+  if (!map) {
+    map = new Map<number, symbol>();
+    PARAM_INJECT_IDS.set(fn, map);
+  }
+  map.set(parameterIndex, tokenId);
 }
 
 // --- domain ---
@@ -62,9 +121,21 @@ console.log(c.database.instance === c2.database.instance);
 
 console.log(c2.database.instance === c2.database.instance);
 
-function main(database: Database = Provide(Container.database)) {
-  console.log(database);
-
+class Program {
+  main(
+    args: any[],
+    @inject(Container.database) database: Database,
+  ) {
+    console.log(args, database);
+  }
 }
 
-main();
+function introspectProvide(p: Program) {
+  const paramMarkers = getInjectedParamIds(p.main);
+  console.log("param markers", paramMarkers && Array.from(paramMarkers.entries()));
+  console.log("database marker", getMarkerFor(Container.database));
+}
+
+const p = new Program();
+p.main([1, 2, 3], "Database" as any);
+introspectProvide(p);
