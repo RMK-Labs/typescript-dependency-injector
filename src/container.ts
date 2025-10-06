@@ -1,16 +1,14 @@
-import { BaseProvider } from "./providers";
+import { BaseProvider, PROVIDER_SYMBOL } from "./providers";
 
 type Constructor<T = object> = new (...args: any[]) => T;
 
 /**
  * Helper type to check if a type looks like a provider
- * Matches BaseProvider, or objects with provide method, or objects with kind property
+ * Matches BaseProvider or objects with a provide method
  */
 type IsProviderLike<T> = T extends BaseProvider<any>
   ? true
   : T extends { provide: (...args: any[]) => any }
-  ? true
-  : T extends { kind: "Factory" | "Singleton" }
   ? true
   : false;
 
@@ -81,22 +79,23 @@ export function initDeclarativeContainer<TCtor extends Constructor<DeclarativeCo
 
   // Mirror all provider properties from the instance to the constructor as static properties
   for (const key of Reflect.ownKeys(instance) as (keyof typeof instance)[]) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const val = (instance as any)[key];
 
-    // Check if the value is a BaseProvider instance or any object property
-    // We check for BaseProvider specifically, but also allow any object that looks like a provider
-    const isProviderLike = val && typeof val === "object" && (
-      val instanceof BaseProvider ||
-      // Allow duck-typing: any object with a provide method or common provider patterns
-      typeof val.provide === "function" ||
-      // Check for common provider properties (kind, instance, create methods)
-      (val.kind && (val.kind === "Factory" || val.kind === "Singleton"))
-    );
+    // Check if the value is a provider by looking for the PROVIDER_SYMBOL
+    // This is a robust check that works with any class extending BaseProvider
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const isProviderLike = val &&
+      typeof val === "object" &&
+      PROVIDER_SYMBOL in val &&
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      val[PROVIDER_SYMBOL] === true;
 
     if (isProviderLike) {
       // Only add if not already present (avoid overwriting existing static members)
       if (!(key in ctor)) {
         Object.defineProperty(ctor, key, {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
           get: () => (instance as any)[key],
           configurable: true,
           enumerable: true,

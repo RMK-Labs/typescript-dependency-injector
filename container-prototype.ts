@@ -1,21 +1,13 @@
 export {};
-import { DeclarativeContainer, initDeclarativeContainer } from "./src/container";
-
-// --- types & decorator from before ---
-
-// --- your providers (stubs) ---
-interface Provider<T = unknown> { readonly kind: "Factory" | "Singleton" }
-class Factory<T> implements Provider<T> { readonly kind = "Factory" as const; constructor(public target: new (...a:any)=>T, public args:any) {} create() { return new this.target(this.args); } }
-class Singleton<T> implements Provider<T> { readonly kind = "Singleton" as const; private _i?:T; constructor(public target:new(...a:any)=>T, public deps?:any) {} get instance(){ return this._i ??= new this.target(this.deps);} }
-
-// --- Provide helper for type-safe default parameters ---
-function Provide<T>(provider: Provider<T>): T {
-  return provider as any;
-}
+import { DeclarativeContainer, initDeclarativeContainer, Factory, Singleton, Provider } from "./src";
 
 // --- minimal DI metadata: parameter @inject markers ---
 const TOKEN_IDS = new WeakMap<object, symbol>();
 const PARAM_INJECT_IDS = new WeakMap<Function, Map<number, symbol>>();
+
+function Provide<T>(provider: Provider<T>): T {
+  return undefined as T;
+}
 
 function getTokenId(token: object): symbol {
   let id = TOKEN_IDS.get(token);
@@ -78,32 +70,32 @@ class Database { constructor(public cfg: DatabaseConfig) {} query(sql:string){} 
 
 // ---- container built via declarative container ----
 const Container = initDeclarativeContainer(class extends DeclarativeContainer {
-  databaseConfig = new Factory(DatabaseConfig, { host: "localhost", port: 5432, database: "myapp" });
-  cacheConfig    = new Factory(CacheConfig,   { ttl: 3600, maxSize: 1000 });
-  database       = new Singleton(Database, this.databaseConfig.create());
+  databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
+  cacheConfig    = new Factory(CacheConfig, 3600, 1000);
+  database       = new Singleton(Database, this.databaseConfig);
 });
 
 // ✅ typed statics:
-Container.database.instance.query("select 1");
-Container.databaseConfig.create().database;
-Container.cacheConfig.create().maxSize;
+Container.database.provide().query("select 1");
+Container.databaseConfig.provide().database;
+Container.cacheConfig.provide().maxSize;
 
 // ✅ typed instances still work too:
 const c = new Container();
-c.database.instance.query("select 1");
+c.database.provide().query("select 1");
 
 const c2 = new Container();
 
 console.log(Container.database === c.database);
-console.log(Container.database.instance === c.database.instance);
+console.log(Container.database.provide() === c.database.provide());
 
-console.log(Container.database.instance === Container.database.instance);
-console.log(c.database.instance === c.database.instance);
+console.log(Container.database.provide() === Container.database.provide());
+console.log(c.database.provide() === c.database.provide());
 
-console.log(Container.database.instance === c2.database.instance);
-console.log(c.database.instance === c2.database.instance);
+console.log(Container.database.provide() === c2.database.provide());
+console.log(c.database.provide() === c2.database.provide());
 
-console.log(c2.database.instance === c2.database.instance);
+console.log(c2.database.provide() === c2.database.provide());
 
 class Program {
   main(
@@ -111,7 +103,6 @@ class Program {
     @inject(Container.database) database: Database = Provide(Container.database),
   ) {
     console.log(args, database);
-    console.log(database);
   }
 }
 
