@@ -1,56 +1,4 @@
-const PROVIDER_SYMBOL = Symbol("@@Provider");
-
-export interface Provider<T> {
-  provide: (...args: any[]) => T;
-}
-
-export abstract class BaseProvider<T> implements Provider<T> {
-  private [PROVIDER_SYMBOL] = true;
-
-  abstract provide(...args: any[]): T;
-
-  get provider(): Delegate<T> {
-    return new Delegate(this);
-  }
-}
-
-export class Factory<T, ProvideArgs extends any[] = any[]> extends BaseProvider<T> {
-  private injectedArgs: any[];
-
-  constructor(
-    private factory: new (...args: any[]) => T,
-    ...injectedArgs: any[]
-  ) {
-    super();
-    this.injectedArgs = injectedArgs;
-  }
-
-  provide(...args: ProvideArgs): T {
-    const resolvedArgs = this.injectedArgs.map((arg) => resolveProviders(arg));
-    return new this.factory(...args, ...resolvedArgs);
-  }
-}
-
-export class Singleton<T, ProvideArgs extends any[] = any[]> extends Factory<T, ProvideArgs> {
-  private instance: T | null = null;
-
-  provide(...args: ProvideArgs): T {
-    if (this.instance === null) {
-      this.instance = super.provide(...args);
-    }
-    return this.instance;
-  }
-}
-
-export class Delegate<T> extends BaseProvider<Provider<T>> {
-  constructor(private readonly delegatedProvider: Provider<T>) {
-    super();
-  }
-
-  provide(): Provider<T> {
-    return this.delegatedProvider;
-  }
-}
+import { Provider, PROVIDER_SYMBOL } from "./providers";
 
 /**
  * Type guard to check if a value is one of our Provider instances
@@ -73,7 +21,7 @@ function isProvider(value: unknown): value is Provider<unknown> {
  * @param resolved - WeakMap to cache resolved objects and maintain object identity
  * @returns The value with all Provider instances resolved via their provide() method
  */
-function resolveProviders(
+export function resolveProviders(
   value: unknown,
   seen: WeakSet<object> = new WeakSet(),
   resolved: WeakMap<object, unknown> = new WeakMap()
