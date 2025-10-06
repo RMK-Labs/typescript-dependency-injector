@@ -1,4 +1,4 @@
-import { DeclarativeContainer, Factory, Singleton, initDeclarativeContainer } from "../src";
+import { DeclarativeContainer, Factory, Singleton } from "../src";
 
 // Test domain classes
 class DatabaseConfig {
@@ -25,155 +25,136 @@ class Database {
 }
 
 describe("DeclarativeContainer", () => {
-  describe("initDeclarativeContainer", () => {
-    it("should create a container with static provider access", () => {
-      const Container = initDeclarativeContainer(class extends DeclarativeContainer {
-        databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
-        cacheConfig = new Factory(CacheConfig, 3600, 1000);
-        database = new Singleton(Database, this.databaseConfig);
-      });
+  it("should create a container with instance provider access", () => {
+    class Container extends DeclarativeContainer {
+      databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
+      cacheConfig = new Factory(CacheConfig, 3600, 1000);
+      database = new Singleton(Database, this.databaseConfig);
+    }
 
-      // Test static access
-      expect(Container.databaseConfig).toBeDefined();
-      expect(Container.cacheConfig).toBeDefined();
-      expect(Container.database).toBeDefined();
+    const container = new Container();
 
-      // Test Factory provider
-      const config1 = Container.databaseConfig.provide();
-      const config2 = Container.databaseConfig.provide();
-      expect(config1).toBeInstanceOf(DatabaseConfig);
-      expect(config2).toBeInstanceOf(DatabaseConfig);
-      expect(config1).not.toBe(config2); // Factory creates new instances
+    // Test instance access
+    expect(container.databaseConfig).toBeDefined();
+    expect(container.cacheConfig).toBeDefined();
+    expect(container.database).toBeDefined();
 
-      // Test Singleton provider
-      const db1 = Container.database.provide();
-      const db2 = Container.database.provide();
-      expect(db1).toBeInstanceOf(Database);
-      expect(db2).toBeInstanceOf(Database);
-      expect(db1).toBe(db2); // Singleton returns same instance
-    });
+    // Test Factory provider
+    const config1 = container.databaseConfig.provide();
+    const config2 = container.databaseConfig.provide();
+    expect(config1).toBeInstanceOf(DatabaseConfig);
+    expect(config2).toBeInstanceOf(DatabaseConfig);
+    expect(config1).not.toBe(config2); // Factory creates new instances
 
-    it("should allow instance access to providers", () => {
-      const Container = initDeclarativeContainer(class extends DeclarativeContainer {
-        databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
-        database = new Singleton(Database, this.databaseConfig);
-      });
+    // Test Singleton provider
+    const db1 = container.database.provide();
+    const db2 = container.database.provide();
+    expect(db1).toBeInstanceOf(Database);
+    expect(db2).toBeInstanceOf(Database);
+    expect(db1).toBe(db2); // Singleton returns same instance
+  });
 
-      // Test instance access
-      const container = new Container();
-      expect(container.databaseConfig).toBeDefined();
-      expect(container.database).toBeDefined();
+  it("should allow instance access to providers", () => {
+    class Container extends DeclarativeContainer {
+      databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
+      database = new Singleton(Database, this.databaseConfig);
+    }
 
-      const db1 = container.database.provide();
-      const db2 = container.database.provide();
-      expect(db1).toBe(db2); // Same singleton instance from same container instance
-    });
+    // Test instance access
+    const container = new Container();
+    expect(container.databaseConfig).toBeDefined();
+    expect(container.database).toBeDefined();
 
-    it("should maintain separate singleton instances per container instance", () => {
-      const Container = initDeclarativeContainer(class extends DeclarativeContainer {
-        database = new Singleton(Database, new Factory(DatabaseConfig, "localhost", 5432, "myapp"));
-      });
+    const db1 = container.database.provide();
+    const db2 = container.database.provide();
+    expect(db1).toBe(db2); // Same singleton instance from same container instance
+  });
 
-      const container1 = new Container();
-      const container2 = new Container();
+  it("should maintain separate singleton instances per container instance", () => {
+    class Container extends DeclarativeContainer {
+      database = new Singleton(Database, new Factory(DatabaseConfig, "localhost", 5432, "myapp"));
+    }
 
-      const db1 = container1.database.provide();
-      const db2 = container2.database.provide();
+    const container1 = new Container();
+    const container2 = new Container();
 
-      expect(db1).toBeInstanceOf(Database);
-      expect(db2).toBeInstanceOf(Database);
-      expect(db1).not.toBe(db2); // Different container instances have different singletons
-    });
+    const db1 = container1.database.provide();
+    const db2 = container2.database.provide();
 
-    it("should share singleton across static and instance access", () => {
-      const Container = initDeclarativeContainer(class extends DeclarativeContainer {
-        database = new Singleton(Database, new Factory(DatabaseConfig, "localhost", 5432, "myapp"));
-      });
+    expect(db1).toBeInstanceOf(Database);
+    expect(db2).toBeInstanceOf(Database);
+    expect(db1).not.toBe(db2); // Different container instances have different singletons
+  });
 
-      const container = new Container();
+  it("should support dependency injection between providers", () => {
+    class Container extends DeclarativeContainer {
+      databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
+      database = new Singleton(Database, this.databaseConfig);
+    }
 
-      // Static access gets the provider from the internal instance
-      const dbFromStatic1 = Container.database.provide();
-      const dbFromStatic2 = Container.database.provide();
+    const container = new Container();
+    const db = container.database.provide();
+    expect(db.config).toBeInstanceOf(DatabaseConfig);
+    expect(db.config.host).toBe("localhost");
+    expect(db.config.port).toBe(5432);
+    expect(db.config.database).toBe("myapp");
+  });
 
-      // Instance access gets the provider from that instance
-      const dbFromInstance1 = container.database.provide();
-      const dbFromInstance2 = container.database.provide();
+  it("should handle complex provider hierarchies", () => {
+    class Service {
+      constructor(public db: Database, public cache: CacheConfig) {}
+    }
 
-      // Each singleton instance maintains its own state
-      expect(dbFromStatic1).toBe(dbFromStatic2);
-      expect(dbFromInstance1).toBe(dbFromInstance2);
-      // But static and instance are different singleton instances
-      expect(dbFromStatic1).not.toBe(dbFromInstance1);
-    });
+    class Container extends DeclarativeContainer {
+      databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
+      cacheConfig = new Factory(CacheConfig, 3600, 1000);
+      database = new Singleton(Database, this.databaseConfig);
+      service = new Singleton(Service, this.database, this.cacheConfig);
+    }
 
-    it("should support dependency injection between providers", () => {
-      const Container = initDeclarativeContainer(class extends DeclarativeContainer {
-        databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
-        database = new Singleton(Database, this.databaseConfig);
-      });
+    const container = new Container();
+    const service = container.service.provide();
+    expect(service).toBeInstanceOf(Service);
+    expect(service.db).toBeInstanceOf(Database);
+    expect(service.cache).toBeInstanceOf(CacheConfig);
 
-      const db = Container.database.provide();
-      expect(db.config).toBeInstanceOf(DatabaseConfig);
-      expect(db.config.host).toBe("localhost");
-      expect(db.config.port).toBe(5432);
-      expect(db.config.database).toBe("myapp");
-    });
+    // Verify singleton behavior
+    const service2 = container.service.provide();
+    expect(service).toBe(service2);
+    expect(service.db).toBe(service2.db); // Same database singleton
+  });
 
-    it("should handle complex provider hierarchies", () => {
-      class Service {
-        constructor(public db: Database, public cache: CacheConfig) {}
-      }
+  it("should provide type-safe access to providers", () => {
+    class Container extends DeclarativeContainer {
+      databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
+      database = new Singleton(Database, this.databaseConfig);
+    }
 
-      const Container = initDeclarativeContainer(class extends DeclarativeContainer {
-        databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
-        cacheConfig = new Factory(CacheConfig, 3600, 1000);
-        database = new Singleton(Database, this.databaseConfig);
-        service = new Singleton(Service, this.database, this.cacheConfig);
-      });
+    const container = new Container();
 
-      const service = Container.service.provide();
-      expect(service).toBeInstanceOf(Service);
-      expect(service.db).toBeInstanceOf(Database);
-      expect(service.cache).toBeInstanceOf(CacheConfig);
+    // TypeScript should infer correct types
+    const config: DatabaseConfig = container.databaseConfig.provide();
+    const db: Database = container.database.provide();
 
-      // Verify singleton behavior
-      const service2 = Container.service.provide();
-      expect(service).toBe(service2);
-      expect(service.db).toBe(service2.db); // Same database singleton
-    });
+    expect(config).toBeInstanceOf(DatabaseConfig);
+    expect(db).toBeInstanceOf(Database);
+  });
 
-    it("should provide type-safe access to providers", () => {
-      const Container = initDeclarativeContainer(class extends DeclarativeContainer {
-        databaseConfig = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
-        database = new Singleton(Database, this.databaseConfig);
-      });
+  it("should work with empty containers", () => {
+    class Container extends DeclarativeContainer {}
 
-      // TypeScript should infer correct types
-      const config: DatabaseConfig = Container.databaseConfig.provide();
-      const db: Database = Container.database.provide();
+    const container = new Container();
+    expect(container).toBeInstanceOf(DeclarativeContainer);
+  });
 
-      expect(config).toBeInstanceOf(DatabaseConfig);
-      expect(db).toBeInstanceOf(Database);
-    });
+  it("should support static properties on container classes", () => {
+    class Container extends DeclarativeContainer {
+      static existingStatic = "should-not-change";
+      database = new Singleton(Database, new Factory(DatabaseConfig, "localhost", 5432, "myapp"));
+    }
 
-    it("should work with empty containers", () => {
-      const Container = initDeclarativeContainer(class extends DeclarativeContainer {});
-
-      const container = new Container();
-      expect(container).toBeInstanceOf(DeclarativeContainer);
-    });
-
-    it("should not override existing static properties", () => {
-      class TestContainer extends DeclarativeContainer {
-        static existingStatic = "should-not-change";
-        database = new Singleton(Database, new Factory(DatabaseConfig, "localhost", 5432, "myapp"));
-      }
-
-      const Container = initDeclarativeContainer(TestContainer);
-
-      expect(Container.existingStatic).toBe("should-not-change");
-      expect(Container.database).toBeDefined();
-    });
+    const container = new Container();
+    expect(Container.existingStatic).toBe("should-not-change");
+    expect(container.database).toBeDefined();
   });
 });
