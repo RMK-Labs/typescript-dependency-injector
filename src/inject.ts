@@ -1,7 +1,10 @@
 import { DeclarativeContainer } from "./container";
-import { BaseProvider, PROVIDER_SYMBOL, Provider } from "./providers";
+import { BaseProvider, PROVIDER_SYMBOL } from "./providers";
 
 type Constructor<T = object> = new (...args: any[]) => T;
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+type AnyFunction = Function;
 
 // Type utilities to extract provider-like keys from a container instance
 type IsProviderLike<T> = T extends BaseProvider<any>
@@ -19,12 +22,12 @@ export type InjectableMarkers<TContainer extends DeclarativeContainer> = {
 };
 
 // Internal registry for provider tokens per container class
-const CONTAINER_PROVIDER_TOKENS = new WeakMap<Function, Map<PropertyKey, symbol>>();
+const CONTAINER_PROVIDER_TOKENS = new WeakMap<AnyFunction, Map<PropertyKey, symbol>>();
 
 // Internal registry for function parameter injection markers
-const PARAM_INJECT_IDS = new WeakMap<Function, Map<number, symbol>>();
+const PARAM_INJECT_IDS = new WeakMap<AnyFunction, Map<number, symbol>>();
 
-function getTokenFor(containerCtor: Function, key: PropertyKey): symbol {
+function getTokenFor(containerCtor: AnyFunction, key: PropertyKey): symbol {
   let byKey = CONTAINER_PROVIDER_TOKENS.get(containerCtor);
   if (!byKey) {
     byKey = new Map<PropertyKey, symbol>();
@@ -38,13 +41,13 @@ function getTokenFor(containerCtor: Function, key: PropertyKey): symbol {
   return token;
 }
 
-function resolveDecoratedFunction(target: any, propertyKey: string | symbol | undefined): Function | undefined {
+function resolveDecoratedFunction(target: any, propertyKey: string | symbol | undefined): AnyFunction | undefined {
   if (propertyKey != null && target) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
     return target[propertyKey];
   }
   if (typeof target === "function") {
-    return target as unknown as Function;
+    return target as unknown as AnyFunction;
   }
   return undefined;
 }
@@ -53,16 +56,17 @@ function isProviderLike(value: unknown): boolean {
   return (
     !!value &&
     typeof value === "object" &&
-    PROVIDER_SYMBOL in (value as object) &&
+    PROVIDER_SYMBOL in value &&
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     (value as any)[PROVIDER_SYMBOL] === true
   );
 }
 
-export function createInjectableMarkers<TCtor extends Constructor<DeclarativeContainer>>(
-  containerCtor: TCtor
+export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
+  options: { containerClass: TCtor }
 ): InjectableMarkers<InstanceType<TCtor>> {
-  const instance = new containerCtor();
+  const { containerClass } = options;
+  const instance = new containerClass();
 
   const markers: Record<PropertyKey, ParameterDecorator> = {};
 
@@ -71,7 +75,7 @@ export function createInjectableMarkers<TCtor extends Constructor<DeclarativeCon
     const val = (instance as any)[key];
     if (!isProviderLike(val)) continue;
 
-    const token = getTokenFor(containerCtor, key);
+    const token = getTokenFor(containerClass, key);
 
     const decorator: ParameterDecorator = (_target, _propertyKey, parameterIndex) => {
       const fn = resolveDecoratedFunction(_target, _propertyKey);
@@ -96,7 +100,7 @@ export function createInjectableMarkers<TCtor extends Constructor<DeclarativeCon
 }
 
 // Introspection helpers to be used later by the injector implementation
-export function getInjectedParamIds(fn: Function): ReadonlyMap<number, symbol> | undefined {
+export function getInjectedParamIds(fn: AnyFunction): ReadonlyMap<number, symbol> | undefined {
   return PARAM_INJECT_IDS.get(fn);
 }
 
@@ -114,5 +118,6 @@ export function Provide<T extends abstract new (...args: any[]) => any>(
 ): InstanceType<T>;
 export function Provide<T>(_type: T): T;
 export function Provide(_type: any): any {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return undefined as any;
 }
