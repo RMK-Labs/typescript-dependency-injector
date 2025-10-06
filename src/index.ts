@@ -1,1 +1,2 @@
-export { BaseProvider, Delegate, Factory, Provider, Singleton } from "./dependency-injector";
+export { BaseProvider, Delegate, Factory, Provider, Singleton } from "./providers";
+export { DeclarativeContainer, initDeclarativeContainer } from "./container";
