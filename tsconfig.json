@@ -17,6 +17,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "include": ["src/**/*", "container-prototype.ts"],
+  "include": ["src/**/*", ".sandbox/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
