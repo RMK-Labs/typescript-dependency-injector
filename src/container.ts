@@ -49,6 +49,7 @@ export abstract class DeclarativeContainer {
 
   resetProviderOverrides(): void {
     for (const key of Reflect.ownKeys(this) as (keyof typeof this)[]) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const val = (this as any)[key];
       if (val instanceof BaseProvider) {
         val.resetOverride();
@@ -58,6 +59,7 @@ export abstract class DeclarativeContainer {
 
   resetSingletonInstances(): void {
     for (const key of Reflect.ownKeys(this) as (keyof typeof this)[]) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const val = (this as any)[key];
       if (val instanceof Singleton) {
         val.resetInstance();

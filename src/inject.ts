@@ -139,7 +139,7 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
     for (const key of Reflect.ownKeys(container) as (keyof typeof container)[]) {
       const containerToken = getTokenFor(containerClass, key);
       if (containerToken === token) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const provider = (container as any)[key];
         if (isProviderLike(provider)) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -184,16 +184,17 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
       for (const [propertyKey, sitesForKey] of byKey.entries()) {
         if (wrapped.has(propertyKey)) continue; // Already wrapped
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const originalFn = target[propertyKey];
         if (typeof originalFn !== 'function') continue;
 
         // Create wrapper that checks for wired containers at call time
         const wrapper = function(this: any, ...args: any[]): any {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           const newArgs = [...args];
 
           // Use the first wired container (FIFO order)
-          const activeContainer = wiredContainers.values().next().value as InstanceType<TCtor> | undefined;
+          const activeContainer = wiredContainers.values().next().value;
 
           if (activeContainer) {
             // Build map of param indices to tokens for this method
@@ -207,13 +208,14 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
               if (paramIndex >= newArgs.length || newArgs[paramIndex] === undefined) {
                 const provider = findProviderByToken(activeContainer, token);
                 if (provider) {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                   newArgs[paramIndex] = provider.provide();
                 }
               }
             }
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           return originalFn.apply(this, newArgs);
         };
 
