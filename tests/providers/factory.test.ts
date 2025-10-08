@@ -525,5 +525,160 @@ describe("Factory Provider", () => {
       expect(provider2).toBe(serviceFactory);
     });
   });
-});
 
+  describe("Factory functions (non-constructor)", () => {
+    it("should support factory functions instead of constructors", () => {
+      interface Logger {
+        log(message: string): string;
+      }
+
+      function createLogger(): Logger {
+        return {
+          log: (message: string) => `LOG: ${message}`,
+        };
+      }
+
+      const loggerFactory = new Factory(createLogger);
+      const logger1 = loggerFactory.provide();
+      const logger2 = loggerFactory.provide();
+
+      expect(logger1.log("test")).toBe("LOG: test");
+      expect(logger2.log("test")).toBe("LOG: test");
+      expect(logger1).not.toBe(logger2);
+    });
+
+    it("should resolve Provider arguments in factory functions", () => {
+      interface Config {
+        host: string;
+        port: number;
+      }
+
+      interface Database {
+        query(): string;
+        config: Config;
+      }
+
+      function createConfig(): Config {
+        return { host: "localhost", port: 5432 };
+      }
+
+      function createDatabase(config: Config): Database {
+        return {
+          config,
+          query: () => `Connected to ${config.host}:${config.port}`,
+        };
+      }
+
+      const configFactory = new Factory(createConfig);
+      const dbFactory = new Factory(createDatabase, configFactory);
+
+      const db = dbFactory.provide();
+
+      expect(db.config.host).toBe("localhost");
+      expect(db.config.port).toBe(5432);
+      expect(db.query()).toBe("Connected to localhost:5432");
+    });
+
+    it("should support arrow functions as factory functions", () => {
+      interface Counter {
+        count: number;
+        increment(): number;
+      }
+
+      const createCounter = (): Counter => ({
+        count: 0,
+        increment() {
+          return ++this.count;
+        },
+      });
+
+      const counterFactory = new Factory(createCounter);
+      const counter1 = counterFactory.provide();
+      const counter2 = counterFactory.provide();
+
+      expect(counter1.increment()).toBe(1);
+      expect(counter1.increment()).toBe(2);
+      expect(counter2.increment()).toBe(1);
+      expect(counter1).not.toBe(counter2);
+    });
+
+    it("should support factory methods", () => {
+      class Logger {
+        static create(): Logger {
+          return new Logger();
+        }
+
+        log(message: string): string {
+          return `LOG: ${message}`;
+        }
+      }
+
+      // Bind the method to avoid unbound method warning
+      const createLogger = Logger.create.bind(Logger);
+      const loggerFactory = new Factory(createLogger);
+      const logger = loggerFactory.provide();
+
+      expect(logger).toBeInstanceOf(Logger);
+      expect(logger.log("test")).toBe("LOG: test");
+    });
+
+    it("should handle factory functions with provide() arguments", () => {
+      interface Service {
+        name: string;
+        port: number;
+        getValue(): string;
+      }
+
+      function createService(name: string, port: number): Service {
+        return {
+          name,
+          port,
+          getValue: () => `${name}:${port}`,
+        };
+      }
+
+      const serviceFactory = new Factory<Service, [string, number]>(createService);
+      const service = serviceFactory.provide("api-service", 3000);
+
+      expect(service.name).toBe("api-service");
+      expect(service.port).toBe(3000);
+      expect(service.getValue()).toBe("api-service:3000");
+    });
+
+    it("should resolve nested Providers with factory functions", () => {
+      interface Logger {
+        log(msg: string): string;
+      }
+
+      interface Config {
+        logger: Logger;
+        name: string;
+      }
+
+      interface Service {
+        config: Config;
+        run(): string;
+      }
+
+      const createLogger = (): Logger => ({
+        log: (msg: string) => `[LOG] ${msg}`,
+      });
+
+      const createService = (config: Config): Service => ({
+        config,
+        run: () => config.logger.log(`Running ${config.name}`),
+      });
+
+      const loggerFactory = new Factory(createLogger);
+      const serviceFactory = new Factory(createService, {
+        logger: loggerFactory,
+        name: "test-service",
+      });
+
+      const service = serviceFactory.provide();
+
+      expect(service.config.name).toBe("test-service");
+      expect(service.run()).toBe("[LOG] Running test-service");
+    });
+  });
+});

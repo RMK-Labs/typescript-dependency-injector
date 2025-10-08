@@ -11,25 +11,47 @@ export abstract class BaseProvider<T> implements Provider<T> {
 
   abstract provide(...args: any[]): T;
 
-  get provider(): Delegate<T> { // TODO: This needs to be a delegate that returns Provider<T>
+  /**
+   * Returns a Delegate provider that wraps this provider.
+   * The Delegate's provide() method returns this provider instance.
+   */
+  get provider(): Delegate<T> {
     return new Delegate(this);
   }
 }
 
+/**
+ * Type representing a constructable that can create instances of T.
+ * Can be either a class constructor or a factory function.
+ */
+export type FactoryConstructable<T> = (new (...args: any[]) => T) | ((...args: any[]) => T);
+
 export class Factory<T, ProvideArgs extends any[] = any[]> extends BaseProvider<T> {
   private injectedArgs: any[];
+  private isConstructor: boolean;
 
   constructor(
-    private factory: new (...args: any[]) => T, // TODO factory should support factory methods and functions
+    private factory: FactoryConstructable<T>,
     ...injectedArgs: any[]
   ) {
     super();
     this.injectedArgs = injectedArgs;
+
+    // Detect if the factory is a constructor or a function
+    this.isConstructor = typeof factory === "function" &&
+      factory.prototype !== undefined &&
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      factory.prototype.constructor === factory;
   }
 
   provide(...args: ProvideArgs): T {
     const resolvedArgs = this.injectedArgs.map((arg) => resolveProviders(arg));
-    return new this.factory(...args, ...resolvedArgs);
+
+    if (this.isConstructor) {
+      return new (this.factory as new (...args: any[]) => T)(...args, ...resolvedArgs);
+    } else {
+      return (this.factory as (...args: any[]) => T)(...args, ...resolvedArgs);
+    }
   }
 }
 
@@ -44,7 +66,13 @@ export class Singleton<T, ProvideArgs extends any[] = any[]> extends Factory<T, 
   }
 }
 
-export class Delegate<T> extends BaseProvider<Provider<T>> { // TODO: T should extend Provider<T>
+/**
+ * Delegate provider that wraps another provider.
+ * When provide() is called, it returns the wrapped provider instance itself.
+ * This is useful for dependency injection scenarios where you want to inject
+ * the provider rather than the provided value.
+ */
+export class Delegate<T> extends BaseProvider<Provider<T>> {
   constructor(private readonly delegatedProvider: Provider<T>) {
     super();
   }
