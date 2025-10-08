@@ -21,11 +21,27 @@ export type InjectableMarkers<TContainer extends DeclarativeContainer> = {
   [K in ProviderKeys<TContainer>]: ParameterDecorator;
 };
 
+export type InjectAPI<TContainer extends DeclarativeContainer> = InjectableMarkers<TContainer> & {
+  wire: (container: TContainer) => void;
+  unwire: (container: TContainer) => void;
+};
+
 // Internal registry for provider tokens per container class
 const CONTAINER_PROVIDER_TOKENS = new WeakMap<AnyFunction, Map<PropertyKey, symbol>>();
 
 // Internal registry for function parameter injection markers
 const PARAM_INJECT_IDS = new WeakMap<AnyFunction, Map<number, symbol>>();
+
+// Track decoration sites: target -> propertyKey -> paramIndex -> token
+type DecorationSite = {
+  target: any;
+  propertyKey: PropertyKey;
+  paramIndex: number;
+  token: symbol;
+};
+
+// Internal registry for decoration sites per container class
+const DECORATION_SITES = new WeakMap<AnyFunction, DecorationSite[]>();
 
 function getTokenFor(containerCtor: AnyFunction, key: PropertyKey): symbol {
   let byKey = CONTAINER_PROVIDER_TOKENS.get(containerCtor);
@@ -64,11 +80,17 @@ function isProviderLike(value: unknown): boolean {
 
 export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
   options: { containerClass: TCtor }
-): InjectableMarkers<InstanceType<TCtor>> {
+): InjectAPI<InstanceType<TCtor>> {
   const { containerClass } = options;
   const instance = new containerClass();
 
   const markers: Record<PropertyKey, ParameterDecorator> = {};
+
+  // Track which containers are currently wired
+  const wiredContainers = new Set<InstanceType<TCtor>>();
+
+  // Track which methods have been wrapped (target -> Set<propertyKey>)
+  const wrappedMethods = new WeakMap<any, Set<PropertyKey>>();
 
   for (const key of Reflect.ownKeys(instance) as (keyof typeof instance)[]) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -78,14 +100,30 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
     const token = getTokenFor(containerClass, key);
 
     const decorator: ParameterDecorator = (_target, _propertyKey, parameterIndex) => {
+      if (_propertyKey === undefined) return; // Skip constructors for now
+
       const fn = resolveDecoratedFunction(_target, _propertyKey);
       if (!fn) return;
+
       let paramMap = PARAM_INJECT_IDS.get(fn);
       if (!paramMap) {
         paramMap = new Map<number, symbol>();
         PARAM_INJECT_IDS.set(fn, paramMap);
       }
       paramMap.set(parameterIndex, token);
+
+      // Record decoration site for this container class
+      let sites = DECORATION_SITES.get(containerClass);
+      if (!sites) {
+        sites = [];
+        DECORATION_SITES.set(containerClass, sites);
+      }
+      sites.push({
+        target: _target,
+        propertyKey: _propertyKey,
+        paramIndex: parameterIndex,
+        token: token,
+      });
     };
 
     Object.defineProperty(markers, key, {
@@ -96,7 +134,102 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
     });
   }
 
-  return markers as unknown as InjectableMarkers<InstanceType<TCtor>>;
+  function findProviderByToken(container: InstanceType<TCtor>, token: symbol): BaseProvider<any> | undefined {
+    // Iterate through container properties to find the provider with matching token
+    for (const key of Reflect.ownKeys(container) as (keyof typeof container)[]) {
+      const containerToken = getTokenFor(containerClass, key);
+      if (containerToken === token) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const provider = (container as any)[key];
+        if (isProviderLike(provider)) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return provider;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  function wire(container: InstanceType<TCtor>): void {
+    wiredContainers.add(container);
+
+    // Get decoration sites for this container class
+    const sites = DECORATION_SITES.get(containerClass);
+    if (!sites) return;
+
+    // Group sites by target and propertyKey
+    const sitesByTargetAndKey = new Map<any, Map<PropertyKey, DecorationSite[]>>();
+    for (const site of sites) {
+      let byKey = sitesByTargetAndKey.get(site.target);
+      if (!byKey) {
+        byKey = new Map();
+        sitesByTargetAndKey.set(site.target, byKey);
+      }
+      let sitesForKey = byKey.get(site.propertyKey);
+      if (!sitesForKey) {
+        sitesForKey = [];
+        byKey.set(site.propertyKey, sitesForKey);
+      }
+      sitesForKey.push(site);
+    }
+
+    // Wrap methods that haven't been wrapped yet
+    for (const [target, byKey] of sitesByTargetAndKey.entries()) {
+      let wrapped = wrappedMethods.get(target);
+      if (!wrapped) {
+        wrapped = new Set();
+        wrappedMethods.set(target, wrapped);
+      }
+
+      for (const [propertyKey, sitesForKey] of byKey.entries()) {
+        if (wrapped.has(propertyKey)) continue; // Already wrapped
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const originalFn = target[propertyKey];
+        if (typeof originalFn !== 'function') continue;
+
+        // Create wrapper that checks for wired containers at call time
+        const wrapper = function(this: any, ...args: any[]): any {
+          const newArgs = [...args];
+
+          // Use the first wired container (FIFO order)
+          const activeContainer = wiredContainers.values().next().value as InstanceType<TCtor> | undefined;
+
+          if (activeContainer) {
+            // Build map of param indices to tokens for this method
+            const tokensByIndex = new Map<number, symbol>();
+            for (const site of sitesForKey) {
+              tokensByIndex.set(site.paramIndex, site.token);
+            }
+
+            // Inject dependencies for parameters that are undefined or missing
+            for (const [paramIndex, token] of tokensByIndex.entries()) {
+              if (paramIndex >= newArgs.length || newArgs[paramIndex] === undefined) {
+                const provider = findProviderByToken(activeContainer, token);
+                if (provider) {
+                  newArgs[paramIndex] = provider.provide();
+                }
+              }
+            }
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return originalFn.apply(this, newArgs);
+        };
+
+        // Replace the method on the target (prototype or instance)
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        target[propertyKey] = wrapper;
+        wrapped.add(propertyKey);
+      }
+    }
+  }
+
+  function unwire(container: InstanceType<TCtor>): void {
+    wiredContainers.delete(container);
+  }
+
+  return { ...markers, wire, unwire } as unknown as InjectAPI<InstanceType<TCtor>>;
 }
 
 // Introspection helpers to be used later by the injector implementation

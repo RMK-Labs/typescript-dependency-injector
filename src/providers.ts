@@ -136,6 +136,10 @@ export class Singleton<T, ProvideArgs extends any[] = any[]> extends Factory<T, 
     }
     return this.instance;
   }
+
+  resetInstance(): void {
+    this.instance = null;
+  }
 }
 
 /**

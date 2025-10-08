@@ -1,4 +1,4 @@
-import { BaseProvider, PROVIDER_SYMBOL } from "./providers";
+import { BaseProvider, PROVIDER_SYMBOL, Singleton } from "./providers";
 
 type Constructor<T = object> = new (...args: any[]) => T;
 
@@ -45,7 +45,27 @@ type WithStaticProviders<TCtor extends Constructor> = TCtor &
  * const db = Container.database.provide();
  * ```
  */
-export abstract class DeclarativeContainer {}
+export abstract class DeclarativeContainer {
+
+  resetProviderOverrides(): void {
+    for (const key of Reflect.ownKeys(this) as (keyof typeof this)[]) {
+      const val = (this as any)[key];
+      if (val instanceof BaseProvider) {
+        val.resetOverride();
+      }
+    }
+  }
+
+  resetSingletonInstances(): void {
+    for (const key of Reflect.ownKeys(this) as (keyof typeof this)[]) {
+      const val = (this as any)[key];
+      if (val instanceof Singleton) {
+        val.resetInstance();
+      }
+    }
+  }
+
+}
 
 /**
  * Initialize a declarative container by mirroring instance provider properties
