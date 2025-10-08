@@ -8,8 +8,58 @@ export interface Provider<T> {
 
 export abstract class BaseProvider<T> implements Provider<T> {
   private [PROVIDER_SYMBOL] = true;
+  private _overridingProviders: Provider<T>[] = [];
 
   abstract provide(...args: any[]): T;
+
+  /**
+   * Returns a readonly copy of the overriding providers stack.
+   */
+  get overrides(): readonly Provider<T>[] {
+    return [...this._overridingProviders];
+  }
+
+  /**
+   * Overrides the current provider with another provider.
+   * When the provider is called, it will delegate to the last overriding provider.
+   * @param provider - The provider to override with
+   * @throws Error if the argument is not a provider
+   */
+  override(provider: Provider<T>): void {
+    if (!provider || typeof provider.provide !== "function") {
+      throw new Error("Override argument must be a provider with a provide() method");
+    }
+    this._overridingProviders.push(provider);
+  }
+
+  /**
+   * Resets the last overriding provider and returns it.
+   * @returns The provider that was removed from the override stack
+   * @throws Error if there are no overriding providers
+   */
+  resetLastOverriding(): Provider<T> {
+    if (this._overridingProviders.length === 0) {
+      throw new Error("No overriding providers to reset");
+    }
+    return this._overridingProviders.pop()!;
+  }
+
+  /**
+   * Resets all overriding providers at once and returns them.
+   * @returns An array of all providers that were removed from the override stack
+   */
+  resetOverride(): Provider<T>[] {
+    const removed = [...this._overridingProviders];
+    this._overridingProviders = [];
+    return removed;
+  }
+
+  /**
+   * Returns true if the provider is currently overridden, false otherwise.
+   */
+  isOverridden(): boolean {
+    return this._overridingProviders.length > 0;
+  }
 
   /**
    * Returns a Delegate provider that wraps this provider.
@@ -17,6 +67,18 @@ export abstract class BaseProvider<T> implements Provider<T> {
    */
   get provider(): Delegate<T> {
     return new Delegate(this);
+  }
+
+  /**
+   * Protected method for providers to delegate to the overriding provider if one exists.
+   * Should be called at the beginning of each provider's provide() method.
+   */
+  protected _delegateIfOverridden(...args: any[]): T | undefined {
+    if (this._overridingProviders.length > 0) {
+      const overridingProvider = this._overridingProviders[this._overridingProviders.length - 1];
+      return overridingProvider.provide(...args);
+    }
+    return undefined;
   }
 }
 
@@ -45,6 +107,11 @@ export class Factory<T, ProvideArgs extends any[] = any[]> extends BaseProvider<
   }
 
   provide(...args: ProvideArgs): T {
+    const overridden = this._delegateIfOverridden(...args);
+    if (overridden !== undefined) {
+      return overridden;
+    }
+
     const resolvedArgs = this.injectedArgs.map((arg) => resolveProviders(arg));
 
     if (this.isConstructor) {
@@ -59,10 +126,19 @@ export class Singleton<T, ProvideArgs extends any[] = any[]> extends Factory<T, 
   private instance: T | null = null;
 
   provide(...args: ProvideArgs): T {
+    const overridden = this._delegateIfOverridden(...args);
+    if (overridden !== undefined) {
+      return overridden;
+    }
+
     if (this.instance === null) {
       this.instance = super.provide(...args);
     }
     return this.instance;
+  }
+
+  resetInstance(): void {
+    this.instance = null;
   }
 }
 
@@ -78,6 +154,11 @@ export class Delegate<T> extends BaseProvider<Provider<T>> {
   }
 
   provide(): Provider<T> {
+    const overridden = this._delegateIfOverridden();
+    if (overridden !== undefined) {
+      return overridden;
+    }
+
     return this.delegatedProvider;
   }
 }
