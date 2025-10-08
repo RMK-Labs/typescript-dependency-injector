@@ -265,10 +265,11 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: EmptyContainer });
 
       expect(Inject).toBeDefined();
-      // Should only have wire and unwire methods, no provider markers
-      expect(Object.keys(Inject).length).toBe(2);
+      // Should only have wire, unwire, and Injectable methods, no provider markers
+      expect(Object.keys(Inject).length).toBe(3);
       expect(Inject.wire).toBeDefined();
       expect(Inject.unwire).toBeDefined();
+      expect(Inject.Injectable).toBeDefined();
     });
 
     it("should handle containers with only factories", () => {
@@ -697,6 +698,138 @@ describe("createInject", () => {
 
         Inject.unwire(container);
       });
+    });
+  });
+
+  describe("constructor injection", () => {
+    it("should inject dependencies into constructor parameters after wire()", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      @Inject.Injectable
+      class TestClass {
+        userService: UserService;
+
+        constructor(
+          @Inject.userService userService: UserService = Provide(UserService)
+        ) {
+          this.userService = userService;
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      const instance = new TestClass();
+
+      expect(instance.userService).toBeDefined();
+      expect(instance.userService).toBeInstanceOf(UserService);
+      expect(instance.userService.findUser(123)).toContain("SELECT * FROM users WHERE id = 123");
+
+      Inject.unwire(container);
+    });
+
+    it("should not inject into constructor before wire()", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      @Inject.Injectable
+      class TestClass {
+        userService: UserService | undefined;
+
+        constructor(
+          @Inject.userService userService: UserService = Provide(UserService)
+        ) {
+          this.userService = userService;
+        }
+      }
+
+      const instance = new TestClass();
+
+      expect(instance.userService).toBeUndefined();
+    });
+
+    it("should inject multiple constructor parameters", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      @Inject.Injectable
+      class TestClass {
+        userService: UserService;
+        logger: Logger;
+
+        constructor(
+          @Inject.userService userService: UserService = Provide(UserService),
+          @Inject.logger logger: Logger = Provide(Logger)
+        ) {
+          this.userService = userService;
+          this.logger = logger;
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      const instance = new TestClass();
+
+      expect(instance.userService).toBeDefined();
+      expect(instance.userService).toBeInstanceOf(UserService);
+      expect(instance.logger).toBeDefined();
+      expect(instance.logger).toBeInstanceOf(Logger);
+
+      Inject.unwire(container);
+    });
+
+    it("should respect manually provided constructor arguments", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      @Inject.Injectable
+      class TestClass {
+        userService: UserService;
+
+        constructor(
+          @Inject.userService userService: UserService = Provide(UserService)
+        ) {
+          this.userService = userService;
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      // Create a custom service
+      const customConfig = new DatabaseConfig("custom", 1111, "customdb");
+      const customDb = new Database(customConfig);
+      const customService = new UserService(customDb);
+
+      const instance = new TestClass(customService);
+
+      expect(instance.userService).toBe(customService);
+      expect(instance.userService.findUser(123)).toContain("customdb@custom:1111");
+
+      Inject.unwire(container);
+    });
+
+    it("should work without @Injectable decorator but not inject", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      // No @Injectable decorator
+      class TestClass {
+        userService: UserService | undefined;
+
+        constructor(
+          @Inject.userService userService: UserService = Provide(UserService)
+        ) {
+          this.userService = userService;
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      const instance = new TestClass();
+
+      // Without @Injectable, no injection happens
+      expect(instance.userService).toBeUndefined();
+
+      Inject.unwire(container);
     });
   });
 });

@@ -24,6 +24,7 @@ export type InjectableMarkers<TContainer extends DeclarativeContainer> = {
 export type InjectAPI<TContainer extends DeclarativeContainer> = InjectableMarkers<TContainer> & {
   wire: (container: TContainer) => void;
   unwire: (container: TContainer) => void;
+  Injectable: <T extends Constructor>(target: T) => T;
 };
 
 // Internal registry for provider tokens per container class
@@ -40,8 +41,18 @@ type DecorationSite = {
   token: symbol;
 };
 
+// Track constructor injection sites separately
+type ConstructorDecorationSite = {
+  constructor: Constructor;
+  paramIndex: number;
+  token: symbol;
+};
+
 // Internal registry for decoration sites per container class
 const DECORATION_SITES = new WeakMap<AnyFunction, DecorationSite[]>();
+
+// Internal registry for constructor decoration sites per container class
+const CONSTRUCTOR_DECORATION_SITES = new WeakMap<AnyFunction, ConstructorDecorationSite[]>();
 
 function getTokenFor(containerCtor: AnyFunction, key: PropertyKey): symbol {
   let byKey = CONTAINER_PROVIDER_TOKENS.get(containerCtor);
@@ -100,7 +111,23 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
     const token = getTokenFor(containerClass, key);
 
     const decorator: ParameterDecorator = (_target, _propertyKey, parameterIndex) => {
-      if (_propertyKey === undefined) return; // Skip constructors for now
+      // Handle constructor parameters
+      if (_propertyKey === undefined) {
+        if (typeof _target === "function") {
+          // _target is the constructor function itself
+          let constructorSites = CONSTRUCTOR_DECORATION_SITES.get(containerClass);
+          if (!constructorSites) {
+            constructorSites = [];
+            CONSTRUCTOR_DECORATION_SITES.set(containerClass, constructorSites);
+          }
+          constructorSites.push({
+            constructor: _target as Constructor,
+            paramIndex: parameterIndex,
+            token: token,
+          });
+        }
+        return;
+      }
 
       const fn = resolveDecoratedFunction(_target, _propertyKey);
       if (!fn) return;
@@ -231,7 +258,57 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
     wiredContainers.delete(container);
   }
 
-  return { ...markers, wire, unwire } as unknown as InjectAPI<InstanceType<TCtor>>;
+  // Class decorator for constructor injection
+  function Injectable<T extends Constructor>(target: T): T {
+    // Get constructor decoration sites for this container class
+    const constructorSites = CONSTRUCTOR_DECORATION_SITES.get(containerClass);
+    if (!constructorSites) {
+      return target; // No injection needed
+    }
+
+    // Find sites for this specific constructor
+    const sitesForConstructor = constructorSites.filter(site => site.constructor === target);
+    if (sitesForConstructor.length === 0) {
+      return target; // No injection needed for this constructor
+    }
+
+    // Create a map of parameter indices to tokens
+    const tokensByIndex = new Map<number, symbol>();
+    for (const site of sitesForConstructor) {
+      tokensByIndex.set(site.paramIndex, site.token);
+    }
+
+    // Create a Proxy that wraps the constructor
+    const proxy = new Proxy(target, {
+      construct(Target, args: any[]) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const newArgs = [...args];
+
+        // Use the first wired container (FIFO order)
+        const activeContainer = wiredContainers.values().next().value;
+
+        if (activeContainer) {
+          // Inject dependencies for parameters that are undefined or missing
+          for (const [paramIndex, token] of tokensByIndex.entries()) {
+            if (paramIndex >= newArgs.length || newArgs[paramIndex] === undefined) {
+              const provider = findProviderByToken(activeContainer, token);
+              if (provider) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                newArgs[paramIndex] = provider.provide();
+              }
+            }
+          }
+        }
+
+        return new Target(...newArgs);
+      }
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return proxy as any;
+  }
+
+  return { ...markers, wire, unwire, Injectable } as unknown as InjectAPI<InstanceType<TCtor>>;
 }
 
 // Introspection helpers to be used later by the injector implementation
