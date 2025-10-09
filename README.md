@@ -6,8 +6,6 @@ TypeScript Dependency Injector (TDI) is a dependency injection framework for Typ
 
 Inspired by [Python Dependency Injector](https://github.com/ets-labs/python-dependency-injector), this framework brings similar powerful dependency injection patterns to TypeScript.
 
-> **⚠️ Early Development**: This framework is currently in early development stage. The API may change, and more providers and features will be added in future releases.
-
 ## Installation
 
 ```bash
