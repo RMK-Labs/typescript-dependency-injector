@@ -1,6 +1,6 @@
 # TypeScript Dependency Injector
 
-<img src="https://raw.githubusercontent.com/wiki/ets-labs/python-dependency-injector/img/logo.svg" alt="Dependency Injector Logo" width="200"/>
+<img src="https://raw.githubusercontent.com/wiki/ets-labs/python-dependency-injector/img/logo.svg" alt="Dependency Injector Logo"/>
 
 TypeScript Dependency Injector (TDI) is a type-safe dependency injection framework for TypeScript with declarative container support and decorator-based injection.
 
