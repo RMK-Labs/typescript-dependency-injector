@@ -27,7 +27,13 @@ npm install @rmk-labs/typescript-dependency-injector
 ## Quick Start
 
 ```typescript
-import { DeclarativeContainer, Factory, Singleton, createInject, Provide } from '@rmk-labs/typescript-dependency-injector';
+import {
+  DeclarativeContainer,
+  Factory,
+  Singleton,
+  createInject,
+  Provide,
+} from "@rmk-labs/typescript-dependency-injector";
 
 // Define your classes
 class DatabaseConfig {
@@ -48,8 +54,11 @@ class UserService {
 
 // Create a container
 class AppContainer extends DeclarativeContainer {
-  config = new Factory(DatabaseConfig, 'localhost', 5432);
+
+  config = new Factory(DatabaseConfig, "localhost", 5432);
+
   database = new Singleton(Database, this.config);
+
   userService = new Singleton(UserService, this.database);
 }
 
@@ -85,7 +94,7 @@ Creates a new instance every time `provide()` is called:
 
 ```typescript
 class MyContainer extends DeclarativeContainer {
-  config = new Factory(DatabaseConfig, 'localhost', 5432);
+  config = new Factory(DatabaseConfig, "localhost", 5432);
 }
 
 const container = new MyContainer();
@@ -110,7 +119,7 @@ const db2 = container.database.provide(); // returns same instance
 Injects the provider itself rather than the provided value. Useful when you need to create instances on demand:
 
 ```typescript
-import { Provider } from '@rmk-labs/typescript-dependency-injector';
+import { Provider } from "@rmk-labs/typescript-dependency-injector";
 
 class ConnectionPool {
   private connections: Database[] = [];
@@ -124,7 +133,7 @@ class ConnectionPool {
 }
 
 class MyContainer extends DeclarativeContainer {
-  config = new Factory(DatabaseConfig, 'localhost', 5432);
+  config = new Factory(DatabaseConfig, "localhost", 5432);
   databaseFactory = new Factory(Database, this.config);
   connectionPool = new Singleton(ConnectionPool, this.databaseFactory.provider); // .provider returns Delegate(this.databaseFactory)
 }
@@ -141,7 +150,7 @@ Pass providers as constructor arguments to automatically inject dependencies:
 
 ```typescript
 class MyContainer extends DeclarativeContainer {
-  config = new Factory(DatabaseConfig, 'localhost', 5432);
+  config = new Factory(DatabaseConfig, "localhost", 5432);
   cache = new Factory(CacheConfig, 3600, 1000);
   database = new Singleton(Database, this.config);
   service = new Singleton(UserService, this.database, this.cache);
@@ -153,7 +162,7 @@ class MyContainer extends DeclarativeContainer {
 Use parameter decorators for more flexible dependency injection:
 
 ```typescript
-import { createInject, Provide } from '@rmk-labs/typescript-dependency-injector';
+import { createInject, Provide } from "@rmk-labs/typescript-dependency-injector";
 
 class MyContainer extends DeclarativeContainer {
   database = new Singleton(Database, this.config);
@@ -185,8 +194,9 @@ controller.getUser(123); // Dependencies automatically injected
 
 #### Constructor Injection
 
+The ``@Inject.Injectable`` decorator is required for constructor injections:
+
 ```typescript
-// The @Inject.Injectable decorator is required for constructor injections
 @Inject.Injectable
 class UserService {
   constructor(
