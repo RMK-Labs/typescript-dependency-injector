@@ -38,6 +38,10 @@
   ],
   "author": "RMK Labs",
   "license": "BSD-3-Clause",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/rmk135"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rmk-labs/typescript-dependency-injector.git"
