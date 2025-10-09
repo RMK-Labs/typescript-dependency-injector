@@ -1,6 +1,6 @@
 {
   "name": "@rmk-labs/typescript-dependency-injector",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Dependency injection framework for TypeScript",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
