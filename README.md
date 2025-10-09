@@ -42,12 +42,15 @@ class DatabaseConfig {
 
 class Database {
   constructor(public config: DatabaseConfig) {}
-  query(sql: string) { return `Executing: ${sql}`; }
+  query(sql: string): string {
+    return `Executing: ${sql}`;
+  }
 }
 
 class UserService {
   constructor(private db: Database) {}
-  getUser(id: number) {
+
+  getUser(id: number): string {
     return this.db.query(`SELECT * FROM users WHERE id = ${id}`);
   }
 }
@@ -55,9 +58,7 @@ class UserService {
 // Create a container
 class AppContainer extends DeclarativeContainer {
   config = new Factory(DatabaseConfig, "localhost", 5432);
-
   database = new Singleton(Database, this.config);
-
   userService = new Singleton(UserService, this.database);
 }
 
@@ -68,8 +69,8 @@ const Inject = createInject({ containerClass: AppContainer });
 class UserController {
   getUser(
     id: number,
-    @Inject.userService service: UserService = Provide(UserService)
-  ) {
+    @Inject.userService service: UserService = Provide(UserService),
+  ): string {
     return service.getUser(id);
   }
 }
@@ -176,8 +177,8 @@ class UserController {
   getUser(
     id: number,
     @Inject.database db: Database = Provide(Database),
-    @Inject.logger log: Logger = Provide(Logger)
-  ) {
+    @Inject.logger log: Logger = Provide(Logger),
+  ): string {
     log.log(`Fetching user ${id}`);
     return db.query(`SELECT * FROM users WHERE id = ${id}`);
   }
@@ -193,17 +194,17 @@ controller.getUser(123); // Dependencies automatically injected
 
 #### Constructor Injection
 
-The ``@Inject.Injectable`` decorator is required for constructor injections:
+The `@Inject.Injectable` decorator is required for constructor injections:
 
 ```typescript
 @Inject.Injectable
 class UserService {
   constructor(
     @Inject.database private db: Database = Provide(Database),
-    @Inject.logger private log: Logger = Provide(Logger)
+    @Inject.logger private log: Logger = Provide(Logger),
   ) {}
 
-  findUser(id: number) {
+  findUser(id: number): string {
     this.log.log(`Finding user ${id}`);
     return this.db.query(`SELECT * FROM users WHERE id = ${id}`);
   }
@@ -262,7 +263,7 @@ Control when injection is active:
 const container = new MyContainer();
 const Inject = createInject({ containerClass: MyContainer });
 
-Inject.wire(container);   // Enable injection
+Inject.wire(container); // Enable injection
 // ... use injected dependencies
 Inject.unwire(container); // Disable injection
 ```
