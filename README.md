@@ -146,15 +146,126 @@ const conn2 = pool.getConnection(); // Creates another new Database instance
 
 ### Dependency Injection Between Providers
 
-Pass providers as constructor arguments to automatically inject dependencies:
+Providers automatically resolve dependencies when you pass them as constructor arguments. When a provider is called, it invokes the `provide()` method on any provider arguments, injecting the resolved instances into your classes.
+
+#### Positional Arguments
 
 ```typescript
+class UserService {
+  constructor(
+    private db: Database,
+    private cache: CacheConfig,
+  ) {}
+
+  getUser(id: number): string {
+    return this.db.query(`SELECT * FROM users WHERE id = ${id}`);
+  }
+}
+
 class MyContainer extends DeclarativeContainer {
   config = new Factory(DatabaseConfig, "localhost", 5432);
   cache = new Factory(CacheConfig, 3600, 1000);
   database = new Singleton(Database, this.config);
   service = new Singleton(UserService, this.database, this.cache);
 }
+
+const container = new MyContainer();
+const service = container.service.provide();
+
+// What happens under the hood:
+// 1. container.service.provide() is called
+// 2. The provider resolves dependencies:
+//    - this.database.provide() → creates/returns Database instance
+//    - this.cache.provide() → creates CacheConfig instance with (3600, 1000)
+// 3. new UserService(databaseInstance, cacheConfigInstance) is called
+// 4. UserService is ready with injected dependencies
+
+// Equivalent manual instantiation without DI:
+const serviceManual = new UserService(
+  new Database(
+    new DatabaseConfig(
+      "localhost",
+      5432,
+    ),
+  ),
+  new CacheConfig(
+    3600,
+    1000,
+  ),
+);
+```
+
+#### Object-Typed Arguments
+
+You can also inject dependencies using object destructuring for better readability:
+
+```typescript
+interface ServiceDependencies {
+  database: Database;
+  cache: CacheConfig;
+  logger: Logger;
+}
+
+class UserService {
+  private db: Database;
+  private cache: CacheConfig;
+  private logger: Logger;
+
+  constructor({ database, cache, logger }: ServiceDependencies) {
+    this.db = database;
+    this.cache = cache;
+    this.logger = logger;
+  }
+
+  getUser(id: number): string {
+    this.logger.log(`Fetching user ${id}`);
+    return this.db.query(`SELECT * FROM users WHERE id = ${id}`);
+  }
+}
+
+class MyContainer extends DeclarativeContainer {
+  config = new Factory(DatabaseConfig, "localhost", 5432);
+  cacheConfig = new Factory(CacheConfig, 3600, 1000);
+  database = new Singleton(Database, this.config);
+  cache = new Singleton(Cache, this.cacheConfig);
+  logger = new Singleton(Logger);
+
+  // Pass an object with provider properties
+  service = new Singleton(UserService, {
+    database: this.database,
+    cache: this.cache,
+    logger: this.logger,
+  });
+}
+
+const container = new MyContainer();
+const service = container.service.provide();
+
+// What happens under the hood:
+// 1. container.service.provide() is called
+// 2. The provider resolves the object argument by calling provide() on each property:
+//    - this.database.provide() → creates/returns Database instance
+//    - this.cache.provide() → creates/returns Cache instance
+//    - this.logger.provide() → creates/returns Logger instance
+// 3. new UserService({ database: databaseInstance, cache: cacheInstance, logger: loggerInstance }) is called
+// 4. UserService is ready with all injected dependencies
+
+// Equivalent manual instantiation without DI:
+const serviceManual = new UserService({
+  database: new Database(
+    new DatabaseConfig(
+      "localhost",
+      5432,
+    ),
+  ),
+  cache: new Cache(
+    new CacheConfig(
+      3600,
+      1000,
+    ),
+  ),
+  logger: new Logger(),
+});
 ```
 
 ### Decorator-Based Injection
