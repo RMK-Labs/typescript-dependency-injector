@@ -54,7 +54,6 @@ class UserService {
 
 // Create a container
 class AppContainer extends DeclarativeContainer {
-
   config = new Factory(DatabaseConfig, "localhost", 5432);
 
   database = new Singleton(Database, this.config);
