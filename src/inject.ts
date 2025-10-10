@@ -1,5 +1,5 @@
 import { DeclarativeContainer } from "./container";
-import { BaseProvider, PROVIDER_SYMBOL } from "./providers";
+import { BaseProvider, Provider, PROVIDER_SYMBOL } from "./providers";
 
 type Constructor<T = object> = new (...args: any[]) => T;
 
@@ -253,7 +253,7 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
         const provider = (container as any)[key];
         if (isProviderLike(provider)) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-          return (provider as any).provider;
+          return provider.provider;
         }
       }
     }
@@ -414,6 +414,17 @@ export function Provide<T extends abstract new (...args: any[]) => any>(
 export function Provide<T>(_type: T): T;
 export function Provide<T>(): T;
 export function Provide(_type?: any): any {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return undefined as any;
+}
+
+// TypeScript-only helper for provider injection. Returns Provider<T> type.
+export function ProvideProvider<T extends abstract new (...args: any[]) => any>(
+  _type: T
+): Provider<InstanceType<T>>;
+export function ProvideProvider<T>(_type: T): Provider<T>;
+export function ProvideProvider<T>(): Provider<T>;
+export function ProvideProvider(_type?: any): any {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return undefined as any;
 }

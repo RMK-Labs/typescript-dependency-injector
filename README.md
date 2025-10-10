@@ -330,7 +330,7 @@ const service = new UserService(); // Dependencies auto-injected
 Sometimes you need to inject the provider itself rather than the provided value. This is useful for creating instances on demand, implementing connection pools, or managing resource lifecycles. Use `@Inject.someProvider.provider` to inject the provider:
 
 ```typescript
-import { Provider } from "@rmk-labs/typescript-dependency-injector";
+import { Provider, ProvideProvider } from "@rmk-labs/typescript-dependency-injector";
 
 class MyContainer extends DeclarativeContainer {
   config = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
@@ -346,7 +346,7 @@ class ConnectionPool {
   private connections: Database[] = [];
 
   constructor(
-    @Inject.database.provider private dbProvider: Provider<Database> = Provide<Provider<Database>>(),
+    @Inject.database.provider private dbProvider: Provider<Database> = ProvideProvider(Database),
     @Inject.logger private logger: Logger = Provide(Logger)
   ) {}
 
@@ -379,7 +379,7 @@ const conn2 = pool.getConnection(); // Creates another new instance
 ```typescript
 class AnalyticsService {
   runReports(
-    @Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>(),
+    @Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database),
     @Inject.logger logger: Logger = Provide(Logger)
   ): void {
     logger.log("Running reports...");
@@ -480,7 +480,8 @@ Inject.unwire(container); // Disable injection
 - **`createInject({ containerClass })`**: Creates injection decorators for a container
 - **`Provide(Type)`**: Syntax sugar for default parameter values. Returns `undefined` at runtime - the actual injection is done by the decorator
   - `Provide(SomeClass)` - for injecting instances
-  - `Provide<Provider<SomeType>>()` - for injecting providers
+- **`ProvideProvider(Type)`**: Syntax sugar for provider injection. Returns `Provider<T>` type
+  - `ProvideProvider(SomeClass)` - for injecting providers that create instances of `SomeClass`
 
 ### Container Methods
 

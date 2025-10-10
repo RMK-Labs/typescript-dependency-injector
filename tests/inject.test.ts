@@ -1,4 +1,4 @@
-import { DeclarativeContainer, Factory, Singleton, createInject, Provide, getInjectedParamIds, getMarkerFor, Provider } from "../src";
+import { DeclarativeContainer, Factory, Singleton, createInject, Provide, ProvideProvider, getInjectedParamIds, getMarkerFor, Provider } from "../src";
 
 // Domain classes for testing
 class DatabaseConfig {
@@ -715,7 +715,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>()) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
           return dbProvider;
         }
       }
@@ -748,7 +748,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: AppContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>()) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
           // Create multiple instances on demand
           const db1 = dbProvider.provide();
           const db2 = dbProvider.provide();
@@ -774,8 +774,8 @@ describe("createInject", () => {
 
       class TestClass {
         method(
-          @Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>(),
-          @Inject.logger.provider logProvider: Provider<Logger> = Provide<Provider<Logger>>()
+          @Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database),
+          @Inject.logger.provider logProvider: Provider<Logger> = ProvideProvider(Logger)
         ) {
           return { dbProvider, logProvider };
         }
@@ -808,7 +808,7 @@ describe("createInject", () => {
         databaseProvider: Provider<Database>;
 
         constructor(
-          @Inject.database.provider databaseProvider: Provider<Database> = Provide<Provider<Database>>()
+          @Inject.database.provider databaseProvider: Provider<Database> = ProvideProvider(Database)
         ) {
           this.databaseProvider = databaseProvider;
         }
@@ -838,7 +838,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>()) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
           return dbProvider;
         }
       }
@@ -864,7 +864,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>()) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
           return dbProvider;
         }
       }
@@ -879,7 +879,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>()) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
           return dbProvider;
         }
       }
@@ -905,7 +905,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: AppContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>()) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
           return dbProvider;
         }
       }
