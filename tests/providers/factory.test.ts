@@ -104,10 +104,7 @@ describe("Factory Provider", () => {
       }
 
       class Service {
-        constructor(
-          public logger: Logger,
-          public db: Database
-        ) {}
+        constructor(public logger: Logger, public db: Database) {}
       }
 
       const loggerFactory = new Factory(Logger);
@@ -183,9 +180,7 @@ describe("Factory Provider", () => {
       expect(service.config.logging.level).toBe("info");
       expect(service.config.data.primary.db).toBeInstanceOf(Database);
       expect(service.config.data.backup.db).toBeInstanceOf(Database);
-      expect(service.config.data.primary.db).not.toBe(
-        service.config.data.backup.db
-      );
+      expect(service.config.data.primary.db).not.toBe(service.config.data.backup.db);
     });
 
     it("should handle nested Providers with multiple levels", () => {
