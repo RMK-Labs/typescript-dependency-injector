@@ -5,6 +5,7 @@ export {
   getInjectedParamIds,
   getMarkerFor,
   Provide,
+  ProvideProvider,
   type InjectableMarkers,
   type InjectAPI,
 } from "./inject";
