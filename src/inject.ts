@@ -18,7 +18,9 @@ type ProviderKeys<T> = {
 }[keyof T];
 
 export type InjectableMarkers<TContainer extends DeclarativeContainer> = {
-  [K in ProviderKeys<TContainer>]: ParameterDecorator;
+  [K in ProviderKeys<TContainer>]: ParameterDecorator & {
+    provider: ParameterDecorator;
+  };
 };
 
 export type InjectAPI<TContainer extends DeclarativeContainer> = InjectableMarkers<TContainer> & {
@@ -29,6 +31,9 @@ export type InjectAPI<TContainer extends DeclarativeContainer> = InjectableMarke
 
 // Internal registry for provider tokens per container class
 const CONTAINER_PROVIDER_TOKENS = new WeakMap<AnyFunction, Map<PropertyKey, symbol>>();
+
+// Internal registry for provider-as-value tokens (for .provider syntax)
+const CONTAINER_PROVIDER_AS_VALUE_TOKENS = new WeakMap<AnyFunction, Map<PropertyKey, symbol>>();
 
 // Internal registry for function parameter injection markers
 const PARAM_INJECT_IDS = new WeakMap<AnyFunction, Map<number, symbol>>();
@@ -63,6 +68,20 @@ function getTokenFor(containerCtor: AnyFunction, key: PropertyKey): symbol {
   let token = byKey.get(key);
   if (!token) {
     token = Symbol(`di:token:${String(key)}`);
+    byKey.set(key, token);
+  }
+  return token;
+}
+
+function getProviderTokenFor(containerCtor: AnyFunction, key: PropertyKey): symbol {
+  let byKey = CONTAINER_PROVIDER_AS_VALUE_TOKENS.get(containerCtor);
+  if (!byKey) {
+    byKey = new Map<PropertyKey, symbol>();
+    CONTAINER_PROVIDER_AS_VALUE_TOKENS.set(containerCtor, byKey);
+  }
+  let token = byKey.get(key);
+  if (!token) {
+    token = Symbol(`di:provider-token:${String(key)}`);
     byKey.set(key, token);
   }
   return token;
@@ -109,6 +128,7 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
     if (!isProviderLike(val)) continue;
 
     const token = getTokenFor(containerClass, key);
+    const providerToken = getProviderTokenFor(containerClass, key);
 
     const decorator: ParameterDecorator = (_target, _propertyKey, parameterIndex) => {
       // Handle constructor parameters
@@ -153,6 +173,58 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
       });
     };
 
+    // Create decorator for injecting the provider itself
+    const providerDecorator: ParameterDecorator = (_target, _propertyKey, parameterIndex) => {
+      // Handle constructor parameters
+      if (_propertyKey === undefined) {
+        if (typeof _target === "function") {
+          // _target is the constructor function itself
+          let constructorSites = CONSTRUCTOR_DECORATION_SITES.get(containerClass);
+          if (!constructorSites) {
+            constructorSites = [];
+            CONSTRUCTOR_DECORATION_SITES.set(containerClass, constructorSites);
+          }
+          constructorSites.push({
+            constructor: _target as Constructor,
+            paramIndex: parameterIndex,
+            token: providerToken,
+          });
+        }
+        return;
+      }
+
+      const fn = resolveDecoratedFunction(_target, _propertyKey);
+      if (!fn) return;
+
+      let paramMap = PARAM_INJECT_IDS.get(fn);
+      if (!paramMap) {
+        paramMap = new Map<number, symbol>();
+        PARAM_INJECT_IDS.set(fn, paramMap);
+      }
+      paramMap.set(parameterIndex, providerToken);
+
+      // Record decoration site for this container class
+      let sites = DECORATION_SITES.get(containerClass);
+      if (!sites) {
+        sites = [];
+        DECORATION_SITES.set(containerClass, sites);
+      }
+      sites.push({
+        target: _target,
+        propertyKey: _propertyKey,
+        paramIndex: parameterIndex,
+        token: providerToken,
+      });
+    };
+
+    // Attach the provider decorator as a property
+    Object.defineProperty(decorator, 'provider', {
+      value: providerDecorator,
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+
     Object.defineProperty(markers, key, {
       value: decorator,
       enumerable: true,
@@ -165,12 +237,23 @@ export function createInject<TCtor extends Constructor<DeclarativeContainer>>(
     // Iterate through container properties to find the provider with matching token
     for (const key of Reflect.ownKeys(container) as (keyof typeof container)[]) {
       const containerToken = getTokenFor(containerClass, key);
+      const providerContainerToken = getProviderTokenFor(containerClass, key);
+
       if (containerToken === token) {
+        // Regular injection - return the provider
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const provider = (container as any)[key];
         if (isProviderLike(provider)) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return provider;
+        }
+      } else if (providerContainerToken === token) {
+        // Provider injection - return the Delegate of the provider
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        const provider = (container as any)[key];
+        if (isProviderLike(provider)) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+          return (provider as any).provider;
         }
       }
     }

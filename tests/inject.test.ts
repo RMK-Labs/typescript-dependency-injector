@@ -1,4 +1,4 @@
-import { DeclarativeContainer, Factory, Singleton, createInject, Provide, getInjectedParamIds, getMarkerFor } from "../src";
+import { DeclarativeContainer, Factory, Singleton, createInject, Provide, getInjectedParamIds, getMarkerFor, Provider } from "../src";
 
 // Domain classes for testing
 class DatabaseConfig {
@@ -698,6 +698,237 @@ describe("createInject", () => {
 
         Inject.unwire(container);
       });
+    });
+  });
+
+  describe("provider injection", () => {
+    it("should have .provider decorator on each injectable marker", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      expect(Inject.database.provider).toBeDefined();
+      expect(typeof Inject.database.provider).toBe("function");
+      expect(Inject.userService.provider).toBeDefined();
+      expect(typeof Inject.userService.provider).toBe("function");
+    });
+
+    it("should inject the provider itself when using @Inject.someProvider.provider", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      class TestClass {
+        method(@Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any) {
+          return dbProvider;
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      const instance = new TestClass();
+      const provider = instance.method();
+
+      expect(provider).toBeDefined();
+      expect(typeof provider.provide).toBe("function");
+
+      // Verify it's actually a provider by calling provide()
+      const db1 = provider.provide();
+      const db2 = provider.provide();
+      expect(db1).toBeInstanceOf(Database);
+      expect(db2).toBeInstanceOf(Database);
+      expect(db1).toBe(db2); // Singleton behavior
+
+      Inject.unwire(container);
+    });
+
+    it("should allow creating instances on demand using injected provider", () => {
+      class AppContainer extends DeclarativeContainer {
+        config = new Factory(DatabaseConfig, "localhost", 5432, "testdb");
+        database = new Factory(Database, this.config); // Factory, not Singleton
+      }
+
+      const Inject = createInject({ containerClass: AppContainer });
+
+      class TestClass {
+        method(@Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any) {
+          // Create multiple instances on demand
+          const db1 = dbProvider.provide();
+          const db2 = dbProvider.provide();
+          return { db1, db2 };
+        }
+      }
+
+      const container = new AppContainer();
+      Inject.wire(container);
+
+      const instance = new TestClass();
+      const { db1, db2 } = instance.method();
+
+      expect(db1).toBeInstanceOf(Database);
+      expect(db2).toBeInstanceOf(Database);
+      expect(db1).not.toBe(db2); // Different instances from Factory
+
+      Inject.unwire(container);
+    });
+
+    it("should inject multiple providers", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      class TestClass {
+        method(
+          @Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any,
+          @Inject.logger.provider logProvider: Provider<Logger> = Provide(Logger) as any
+        ) {
+          return { dbProvider, logProvider };
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      const instance = new TestClass();
+      const { dbProvider, logProvider } = instance.method();
+
+      expect(dbProvider).toBeDefined();
+      expect(typeof dbProvider.provide).toBe("function");
+      expect(logProvider).toBeDefined();
+      expect(typeof logProvider.provide).toBe("function");
+
+      const db = dbProvider.provide();
+      const logger = logProvider.provide();
+      expect(db).toBeInstanceOf(Database);
+      expect(logger).toBeInstanceOf(Logger);
+
+      Inject.unwire(container);
+    });
+
+    it("should work with constructor injection", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      @Inject.Injectable
+      class ConnectionPool {
+        databaseProvider: Provider<Database>;
+
+        constructor(
+          @Inject.database.provider databaseProvider: Provider<Database> = Provide(Database) as any
+        ) {
+          this.databaseProvider = databaseProvider;
+        }
+
+        getConnection() {
+          return this.databaseProvider.provide();
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      const pool = new ConnectionPool();
+      expect(pool.databaseProvider).toBeDefined();
+
+      const conn1 = pool.getConnection();
+      const conn2 = pool.getConnection();
+
+      expect(conn1).toBeInstanceOf(Database);
+      expect(conn2).toBeInstanceOf(Database);
+      expect(conn1).toBe(conn2); // Singleton behavior
+
+      Inject.unwire(container);
+    });
+
+    it("should respect manually provided providers", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      class TestClass {
+        method(@Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any) {
+          return dbProvider;
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      const instance = new TestClass();
+
+      // Provide a custom provider
+      const customProvider = new Factory(Database, new DatabaseConfig("custom", 9999, "customdb"));
+      const result = instance.method(customProvider);
+
+      expect(result).toBe(customProvider);
+      const db = result.provide();
+      expect(db.config.host).toBe("custom");
+      expect(db.config.port).toBe(9999);
+
+      Inject.unwire(container);
+    });
+
+    it("should not inject provider before wire()", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      class TestClass {
+        method(@Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any) {
+          return dbProvider;
+        }
+      }
+
+      const instance = new TestClass();
+      const result = instance.method();
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should stop injecting provider after unwire()", () => {
+      const Inject = createInject({ containerClass: TestContainer });
+
+      class TestClass {
+        method(@Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any) {
+          return dbProvider;
+        }
+      }
+
+      const container = new TestContainer();
+      Inject.wire(container);
+
+      const instance = new TestClass();
+      const resultWired = instance.method();
+      expect(resultWired).toBeDefined();
+
+      Inject.unwire(container);
+      const resultUnwired = instance.method();
+      expect(resultUnwired).toBeUndefined();
+    });
+
+    it("should work with provider overrides", () => {
+      class AppContainer extends DeclarativeContainer {
+        dbConfig = new Factory(DatabaseConfig, "original", 5432, "originaldb");
+        database = new Singleton(Database, this.dbConfig);
+      }
+
+      const Inject = createInject({ containerClass: AppContainer });
+
+      class TestClass {
+        method(@Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any) {
+          return dbProvider;
+        }
+      }
+
+      const container = new AppContainer();
+
+      // Override the database provider
+      const mockConfig = new Factory(DatabaseConfig, "mock", 9999, "mockdb");
+      const mockDatabase = new Factory(Database, mockConfig);
+      container.database.override(mockDatabase);
+
+      Inject.wire(container);
+
+      const instance = new TestClass();
+      const provider = instance.method();
+      const db = provider.provide();
+
+      expect(db).toBeInstanceOf(Database);
+      expect(db.config.host).toBe("mock");
+      expect(db.config.port).toBe(9999);
+      expect(db.config.database).toBe("mockdb");
+
+      Inject.unwire(container);
     });
   });
 

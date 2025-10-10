@@ -325,6 +325,94 @@ Inject.wire(container);
 const service = new UserService(); // Dependencies auto-injected
 ```
 
+#### Provider Injection
+
+Sometimes you need to inject the provider itself rather than the provided value. This is useful for creating instances on demand, implementing connection pools, or managing resource lifecycles. Use `@Inject.someProvider.provider` to inject the provider:
+
+```typescript
+import { Provider } from "@rmk-labs/typescript-dependency-injector";
+
+class MyContainer extends DeclarativeContainer {
+  config = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
+  database = new Factory(Database, this.config); // Factory, not Singleton
+  logger = new Singleton(Logger);
+}
+
+const Inject = createInject({ containerClass: MyContainer });
+
+// Inject the provider to create instances on demand
+@Inject.Injectable
+class ConnectionPool {
+  private connections: Database[] = [];
+
+  constructor(
+    @Inject.database.provider private dbProvider: Provider<Database> = Provide(Database) as any,
+    @Inject.logger private logger: Logger = Provide(Logger)
+  ) {}
+
+  getConnection(): Database {
+    if (this.connections.length > 0) {
+      this.logger.log("Reusing connection from pool");
+      return this.connections.pop()!;
+    }
+
+    // Create new connection on demand using the provider
+    this.logger.log("Creating new connection");
+    return this.dbProvider.provide();
+  }
+
+  releaseConnection(db: Database): void {
+    this.connections.push(db);
+  }
+}
+
+const container = new MyContainer();
+Inject.wire(container);
+
+const pool = new ConnectionPool();
+const conn1 = pool.getConnection(); // Creates new instance
+const conn2 = pool.getConnection(); // Creates another new instance
+```
+
+**Method Parameter Injection:**
+
+```typescript
+class AnalyticsService {
+  runReports(
+    @Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any,
+    @Inject.logger logger: Logger = Provide(Logger)
+  ): void {
+    logger.log("Running reports...");
+
+    // Create multiple database connections for parallel processing
+    const reports = ["sales", "users", "activity"];
+    reports.forEach(report => {
+      const db = dbProvider.provide(); // New instance for each report
+      db.query(`GENERATE REPORT ${report}`);
+    });
+  }
+}
+```
+
+**Container-Level Provider Injection:**
+
+You can also use providers directly in your container without decorators:
+
+```typescript
+class AppContainer extends DeclarativeContainer {
+  config = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
+  database = new Factory(Database, this.config);
+  logger = new Singleton(Logger);
+
+  // Pass database.provider to inject the provider itself (returns a Delegate)
+  connectionPool = new Singleton(ConnectionPool, this.database.provider, this.logger);
+}
+
+const container = new AppContainer();
+const pool = container.connectionPool.provide();
+// pool can now create database connections on demand
+```
+
 ## Advanced Features
 
 ### Provider Overriding
@@ -403,6 +491,7 @@ Inject.unwire(container); // Disable injection
 - **`Inject.unwire(container)`**: Disable dependency injection
 - **`Inject.Injectable`**: Class decorator for constructor injection
 - **`@Inject.propertyName`**: Parameter decorator for each container provider
+- **`@Inject.propertyName.provider`**: Parameter decorator to inject the provider itself (returns a `Provider<T>` instance)
 
 ## TypeScript Configuration
 
