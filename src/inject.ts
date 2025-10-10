@@ -412,7 +412,8 @@ export function Provide<T extends abstract new (...args: any[]) => any>(
   _type: T
 ): InstanceType<T>;
 export function Provide<T>(_type: T): T;
-export function Provide(_type: any): any {
+export function Provide<T>(): T;
+export function Provide(_type?: any): any {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return undefined as any;
 }

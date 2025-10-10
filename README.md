@@ -346,7 +346,7 @@ class ConnectionPool {
   private connections: Database[] = [];
 
   constructor(
-    @Inject.database.provider private dbProvider: Provider<Database> = Provide(Database) as any,
+    @Inject.database.provider private dbProvider: Provider<Database> = Provide<Provider<Database>>(),
     @Inject.logger private logger: Logger = Provide(Logger)
   ) {}
 
@@ -379,7 +379,7 @@ const conn2 = pool.getConnection(); // Creates another new instance
 ```typescript
 class AnalyticsService {
   runReports(
-    @Inject.database.provider dbProvider: Provider<Database> = Provide(Database) as any,
+    @Inject.database.provider dbProvider: Provider<Database> = Provide<Provider<Database>>(),
     @Inject.logger logger: Logger = Provide(Logger)
   ): void {
     logger.log("Running reports...");
@@ -478,7 +478,9 @@ Inject.unwire(container); // Disable injection
 ### Functions
 
 - **`createInject({ containerClass })`**: Creates injection decorators for a container
-- **`Provide(Type)`**: Syntax sugar for default parameter values. Only needed when you want to fix typing or call methods with injections explicitly. Returns `undefined` at runtime - the actual injection is done by the decorator
+- **`Provide(Type)`**: Syntax sugar for default parameter values. Returns `undefined` at runtime - the actual injection is done by the decorator
+  - `Provide(SomeClass)` - for injecting instances
+  - `Provide<Provider<SomeType>>()` - for injecting providers
 
 ### Container Methods
 
