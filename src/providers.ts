@@ -1,4 +1,5 @@
 import { resolveProviders } from "./utils";
+import { isExtend } from "./extend";
 
 export const PROVIDER_SYMBOL = Symbol("@@Provider");
 
@@ -112,13 +113,49 @@ export class Factory<T, ProvideArgs extends any[] = any[]> extends BaseProvider<
       return overridden;
     }
 
-    const resolvedArgs = this.injectedArgs.map((arg) => resolveProviders(arg));
+    // Check if any injectedArgs uses Extend
+    const hasExtend = this.injectedArgs.some((arg) => isExtend(arg));
+
+    const resolvedArgs: unknown[] = this.injectedArgs.map((arg) => this._resolveArg(arg, args));
 
     if (this.isConstructor) {
-      return new (this.factory as new (...args: any[]) => T)(...args, ...resolvedArgs);
+      // If using Extend, don't pass args separately - they're merged into resolvedArgs
+      if (hasExtend) {
+        return new (this.factory as new (...args: any[]) => T)(...(resolvedArgs as any[]));
+      }
+      return new (this.factory as new (...args: any[]) => T)(...args, ...(resolvedArgs as any[]));
     } else {
-      return (this.factory as (...args: any[]) => T)(...args, ...resolvedArgs);
+      // If using Extend, don't pass args separately - they're merged into resolvedArgs
+      if (hasExtend) {
+        return (this.factory as (...args: any[]) => T)(...(resolvedArgs as any[]));
+      }
+      return (this.factory as (...args: any[]) => T)(...args, ...(resolvedArgs as any[]));
     }
+  }
+
+  /**
+   * Resolves an argument, handling Extend instances specially.
+   * If the argument is an Extend instance and context args are provided,
+   * merges the context with defaults (context takes priority).
+   */
+  private _resolveArg(arg: unknown, contextArgs: unknown[]): unknown {
+    if (isExtend(arg)) {
+      const defaults: Record<string, unknown> = arg.defaults as Record<string, unknown>;
+      const context: Record<string, unknown> = (contextArgs.length > 0 ? contextArgs[0] : {}) as Record<string, unknown>;
+
+      // Resolve providers in defaults, but only for keys not in context
+      const resolvedDefaults: Record<string, unknown> = {};
+      for (const key in defaults) {
+        if (!(key in context)) {
+          resolvedDefaults[key] = resolveProviders(defaults[key]);
+        }
+      }
+
+      // Merge with context taking priority
+      return { ...resolvedDefaults, ...context };
+    }
+
+    return resolveProviders(arg);
   }
 }
 

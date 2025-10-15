@@ -16,6 +16,7 @@ npm install @rmk-labs/typescript-dependency-injector
 
 - **Declarative Containers**: Define DI containers using class properties
 - **Provider Types**: `Factory` (new instance each time), `Singleton` (shared instance), `Delegate` (inject provider itself)
+- **Runtime Context Merging**: Use `Extend` to mix container-managed dependencies with runtime context
 - **Type Safety**: Full TypeScript type inference and compile-time checks
 - **Decorator-Based Injection**: Optional parameter decorator support with `@Inject`
 - **Provider Overriding**: Replace providers at runtime for testing or configuration
@@ -266,6 +267,82 @@ const serviceManual = new UserService({
 });
 ```
 
+#### Runtime Context with Extend
+
+When you need to provide some dependencies from the container and others at runtime (e.g., request-specific context), use the `Extend` wrapper. This is particularly useful for request-scoped dependencies in web applications or any scenario where you need to mix static dependencies with dynamic context.
+
+```typescript
+import { Extend } from "@rmk-labs/typescript-dependency-injector";
+
+interface UserServiceDeps {
+  logger: Logger;
+  database: Database;
+  requestId: string; // Will be provided at runtime
+}
+
+class UserService {
+  private logger: Logger;
+  private database: Database;
+  private requestId: string;
+
+  constructor(deps: UserServiceDeps) {
+    this.logger = deps.logger;
+    this.database = deps.database;
+    this.requestId = deps.requestId;
+  }
+
+  getUser(id: number): string {
+    this.logger.log(`[${this.requestId}] Fetching user ${id}`);
+    return this.database.query(`SELECT * FROM users WHERE id = ${id}`);
+  }
+}
+
+class MyContainer extends DeclarativeContainer {
+  logger = new Singleton(Logger);
+  database = new Singleton(Database, "localhost:5432");
+
+  // Use Extend to indicate that some properties will come from runtime context
+  userService = new Factory(UserService, new Extend({
+    logger: this.logger,
+    database: this.database,
+    // requestId will be provided when calling .provide()
+  }));
+}
+
+const container = new MyContainer();
+
+// Provide context at runtime - merges with container defaults
+const service = container.userService.provide({ requestId: "req-123" });
+service.getUser(42); // Logs: "[Logger] [req-123] Fetching user 42"
+
+// Context values override defaults
+const serviceWithCustomLogger = container.userService.provide({
+  requestId: "req-456",
+  logger: new CustomLogger(), // Overrides container's logger
+});
+```
+
+**How Extend Works:**
+
+1. **Defaults in Container**: Define static dependencies (logger, database) in the `Extend` wrapper
+2. **Runtime Context**: Pass dynamic values (requestId) to `.provide()`
+3. **Smart Merging**: Context values override defaults; default providers are only called for missing keys
+4. **Type Safety**: TypeScript ensures all required dependencies are provided either in defaults or context
+
+**Key Benefits:**
+
+- **Performance**: Default providers aren't called for overridden values
+- **Flexibility**: Mix container-managed and runtime dependencies
+- **Clean Separation**: Static infrastructure vs. dynamic request context
+- **Testing**: Easily override dependencies in tests
+
+**Use Cases:**
+
+- Request-scoped dependencies in web applications
+- Per-operation context (user ID, tenant ID, request ID)
+- A/B testing with different configurations
+- Test scenarios with partial mocks
+
 ### Decorator-Based Injection
 
 Use parameter decorators for more flexible dependency injection:
@@ -474,6 +551,7 @@ Inject.unwire(container); // Disable injection
 - **`Singleton<T>`**: Provider that maintains a single instance
 - **`Delegate<T>`**: Provider that returns another provider
 - **`BaseProvider<T>`**: Abstract base class for custom providers
+- **`Extend<T>`**: Wrapper for object arguments that merges runtime context with container defaults
 
 ### Functions
 
