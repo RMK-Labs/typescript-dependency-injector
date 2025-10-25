@@ -31,7 +31,7 @@ import {
   Factory,
   Singleton,
   createInject,
-  Provide,
+  InstanceOf,
 } from "@rmk-labs/typescript-dependency-injector";
 
 // Define your classes
@@ -68,7 +68,7 @@ const Inject = createInject({ containerClass: AppContainer });
 class UserController {
   getUser(
     id: number,
-    @Inject.userService service: UserService = Provide(UserService),
+    @Inject.userService service: UserService = InstanceOf(UserService),
   ): string {
     return service.getUser(id);
   }
@@ -348,7 +348,7 @@ const serviceWithCustomLogger = container.userService.provide({
 Use parameter decorators for more flexible dependency injection:
 
 ```typescript
-import { createInject, Provide } from "@rmk-labs/typescript-dependency-injector";
+import { createInject, InstanceOf } from "@rmk-labs/typescript-dependency-injector";
 
 class MyContainer extends DeclarativeContainer {
   database = new Singleton(Database, this.config);
@@ -362,8 +362,8 @@ class UserController {
   // Method parameter injection
   getUser(
     id: number,
-    @Inject.database db: Database = Provide(Database),
-    @Inject.logger log: Logger = Provide(Logger),
+    @Inject.database db: Database = InstanceOf(Database),
+    @Inject.logger log: Logger = InstanceOf(Logger),
   ): string {
     log.log(`Fetching user ${id}`);
     return db.query(`SELECT * FROM users WHERE id = ${id}`);
@@ -386,8 +386,8 @@ The `@Inject.Injectable` decorator is required for constructor injections:
 @Inject.Injectable
 class UserService {
   constructor(
-    @Inject.database private db: Database = Provide(Database),
-    @Inject.logger private log: Logger = Provide(Logger),
+    @Inject.database private db: Database = InstanceOf(Database),
+    @Inject.logger private log: Logger = InstanceOf(Logger),
   ) {}
 
   findUser(id: number): string {
@@ -407,7 +407,7 @@ const service = new UserService(); // Dependencies auto-injected
 Sometimes you need to inject the provider itself rather than the provided value. This is useful for creating instances on demand, implementing connection pools, or managing resource lifecycles. Use `@Inject.someProvider.provider` to inject the provider:
 
 ```typescript
-import { Provider, ProvideProvider } from "@rmk-labs/typescript-dependency-injector";
+import { Provider, ProviderOf } from "@rmk-labs/typescript-dependency-injector";
 
 class MyContainer extends DeclarativeContainer {
   config = new Factory(DatabaseConfig, "localhost", 5432, "myapp");
@@ -423,8 +423,8 @@ class ConnectionPool {
   private connections: Database[] = [];
 
   constructor(
-    @Inject.database.provider private dbProvider: Provider<Database> = ProvideProvider(Database),
-    @Inject.logger private logger: Logger = Provide(Logger)
+    @Inject.database.provider private dbProvider: Provider<Database> = ProviderOf(Database),
+    @Inject.logger private logger: Logger = InstanceOf(Logger)
   ) {}
 
   getConnection(): Database {
@@ -456,8 +456,8 @@ const conn2 = pool.getConnection(); // Creates another new instance
 ```typescript
 class AnalyticsService {
   runReports(
-    @Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database),
-    @Inject.logger logger: Logger = Provide(Logger)
+    @Inject.database.provider dbProvider: Provider<Database> = ProviderOf(Database),
+    @Inject.logger logger: Logger = InstanceOf(Logger)
   ): void {
     logger.log("Running reports...");
 
@@ -556,10 +556,12 @@ Inject.unwire(container); // Disable injection
 ### Functions
 
 - **`createInject({ containerClass })`**: Creates injection decorators for a container
-- **`Provide(Type)`**: Syntax sugar for default parameter values. Returns `undefined` at runtime - the actual injection is done by the decorator
-  - `Provide(SomeClass)` - for injecting instances
-- **`ProvideProvider(Type)`**: Syntax sugar for provider injection. Returns `Provider<T>` type
-  - `ProvideProvider(SomeClass)` - for injecting providers that create instances of `SomeClass`
+- **`InstanceOf(Type)`**: Syntax sugar for default parameter values. Returns `undefined` at runtime - the actual injection is done by the decorator
+  - `InstanceOf(SomeClass)` - for injecting instances
+  - `InstanceOf<SomeInterface>()` - for injecting instances of interfaces/types
+- **`ProviderOf(Type)`**: Syntax sugar for provider injection. Returns `Provider<T>` type
+  - `ProviderOf(SomeClass)` - for injecting providers that create instances of `SomeClass`
+  - `ProviderOf<SomeInterface>()` - for injecting providers of interfaces/types
 
 ### Container Methods
 

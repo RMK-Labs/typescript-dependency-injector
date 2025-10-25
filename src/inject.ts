@@ -408,23 +408,17 @@ export function getMarkerFor<TCtor extends Constructor<DeclarativeContainer>>(
 
 // TypeScript-only helper to satisfy types when calling functions that rely on
 // parameter decorators for injection. It returns undefined at runtime.
-export function Provide<T extends abstract new (...args: any[]) => any>(
-  _type: T
-): InstanceType<T>;
-export function Provide<T>(_type: T): T;
-export function Provide<T>(): T;
-export function Provide(_type?: any): any {
+export function InstanceOf<T>(): T;
+export function InstanceOf<T>(_type: T): T extends abstract new (...args: any[]) => any ? InstanceType<T> : T;
+export function InstanceOf(_type?: any): any {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return undefined as any;
 }
 
 // TypeScript-only helper for provider injection. Returns Provider<T> type.
-export function ProvideProvider<T extends abstract new (...args: any[]) => any>(
-  _type: T
-): Provider<InstanceType<T>>;
-export function ProvideProvider<T>(_type: T): Provider<T>;
-export function ProvideProvider<T>(): Provider<T>;
-export function ProvideProvider(_type?: any): any {
+export function ProviderOf<T>(): Provider<T>;
+export function ProviderOf<T>(_type: T): T extends abstract new (...args: any[]) => any ? Provider<InstanceType<T>> : Provider<T>;
+export function ProviderOf(_type?: any): any {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return undefined as any;
 }

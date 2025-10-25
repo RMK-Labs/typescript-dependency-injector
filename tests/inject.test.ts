@@ -1,4 +1,4 @@
-import { DeclarativeContainer, Factory, Singleton, createInject, Provide, ProvideProvider, getInjectedParamIds, getMarkerFor, Provider } from "../src";
+import { DeclarativeContainer, Factory, Singleton, createInject, InstanceOf, ProviderOf, getInjectedParamIds, getMarkerFor, Provider } from "../src";
 
 // Domain classes for testing
 class DatabaseConfig {
@@ -78,7 +78,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.userService service: UserService = Provide(UserService)) {
+        method(@Inject.userService service: UserService = InstanceOf(UserService)) {
           return service;
         }
       }
@@ -96,8 +96,8 @@ describe("createInject", () => {
 
       class TestClass {
         method(
-          @Inject.database db: Database = Provide(Database),
-          @Inject.logger log: Logger = Provide(Logger)
+          @Inject.database db: Database = InstanceOf(Database),
+          @Inject.logger log: Logger = InstanceOf(Logger)
         ) {
           return { db, log };
         }
@@ -118,7 +118,7 @@ describe("createInject", () => {
       class TestClass {
         method(
           regularParam: string,
-          @Inject.userService service: UserService = Provide(UserService)
+          @Inject.userService service: UserService = InstanceOf(UserService)
         ): string {
           return `${regularParam}:${service.constructor.name}`;
         }
@@ -163,16 +163,16 @@ describe("createInject", () => {
     });
   });
 
-  describe("Provide() function", () => {
+  describe("InstanceOf() function", () => {
     it("should return undefined", () => {
-      const result = Provide(UserService);
+      const result = InstanceOf(UserService);
       expect(result).toBeUndefined();
     });
 
     it("should work with any type parameter", () => {
-      const result1 = Provide(Database);
-      const result2 = Provide(Logger);
-      const result3 = Provide(String);
+      const result1 = InstanceOf(Database);
+      const result2 = InstanceOf(Logger);
+      const result3 = InstanceOf(String);
 
       expect(result1).toBeUndefined();
       expect(result2).toBeUndefined();
@@ -180,12 +180,12 @@ describe("createInject", () => {
     });
 
     it("should satisfy TypeScript types without runtime value", () => {
-      // This test verifies that Provide() can be used as a default parameter
+      // This test verifies that InstanceOf() can be used as a default parameter
       // The actual injection would be handled by a runtime injector (not tested here)
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.userService service: UserService = Provide(UserService)) {
+        method(@Inject.userService service: UserService = InstanceOf(UserService)) {
           // In real usage, the decorator would replace the undefined with actual value
           return service;
         }
@@ -210,7 +210,7 @@ describe("createInject", () => {
 
       class Program {
         main(
-          @Inject.userService userService: UserService = Provide(UserService),
+          @Inject.userService userService: UserService = InstanceOf(UserService),
         ) {
           return userService.findUser(123);
         }
@@ -302,9 +302,9 @@ describe("createInject", () => {
       // This is a compile-time test - if it compiles, the types are correct
       class TestClass {
         method(
-          @Inject.userService service: UserService = Provide(UserService),
-          @Inject.database db: Database = Provide(Database),
-          @Inject.logger log: Logger = Provide(Logger)
+          @Inject.userService service: UserService = InstanceOf(UserService),
+          @Inject.database db: Database = InstanceOf(Database),
+          @Inject.logger log: Logger = InstanceOf(Logger)
         ) {
           // Type assertions to verify correct typing
           const _service: UserService = service;
@@ -335,7 +335,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: TestContainer });
 
         class TestClass {
-          method(@Inject.userService service: UserService = Provide(UserService)) {
+          method(@Inject.userService service: UserService = InstanceOf(UserService)) {
             return service.findUser(123);
           }
         }
@@ -356,7 +356,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: TestContainer });
 
         class TestClass {
-          method(@Inject.userService service: UserService = Provide(UserService)) {
+          method(@Inject.userService service: UserService = InstanceOf(UserService)) {
             return service?.findUser(123) ?? "no service";
           }
         }
@@ -371,7 +371,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: TestContainer });
 
         class TestClass {
-          method(@Inject.userService service: UserService = Provide(UserService)) {
+          method(@Inject.userService service: UserService = InstanceOf(UserService)) {
             return service?.findUser(123) ?? "no service";
           }
         }
@@ -395,8 +395,8 @@ describe("createInject", () => {
 
         class TestClass {
           method(
-            @Inject.userService service: UserService = Provide(UserService),
-            @Inject.logger log: Logger = Provide(Logger)
+            @Inject.userService service: UserService = InstanceOf(UserService),
+            @Inject.logger log: Logger = InstanceOf(Logger)
           ) {
             return {
               user: service.findUser(456),
@@ -422,8 +422,8 @@ describe("createInject", () => {
 
         class TestClass {
           method(
-            @Inject.userService service: UserService = Provide(UserService),
-            @Inject.logger log: Logger = Provide(Logger)
+            @Inject.userService service: UserService = InstanceOf(UserService),
+            @Inject.logger log: Logger = InstanceOf(Logger)
           ) {
             return {
               serviceName: service.constructor.name,
@@ -456,7 +456,7 @@ describe("createInject", () => {
         }
 
         class TestClass {
-          method(@Inject.userService service: UserService = Provide(UserService)) {
+          method(@Inject.userService service: UserService = InstanceOf(UserService)) {
             return service.findUser(789);
           }
         }
@@ -496,7 +496,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: Container1 });
 
         class TestClass {
-          method(@Inject.userService service: UserService = Provide(UserService)) {
+          method(@Inject.userService service: UserService = InstanceOf(UserService)) {
             return service.findUser(100);
           }
         }
@@ -527,7 +527,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: AppContainer });
 
         class TestClass {
-          method(@Inject.userService service: UserService = Provide(UserService)) {
+          method(@Inject.userService service: UserService = InstanceOf(UserService)) {
             return service.findUser(200);
           }
         }
@@ -558,7 +558,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: TestContainer });
 
         class TestClass {
-          method(@Inject.database db: Database = Provide(Database)) {
+          method(@Inject.database db: Database = InstanceOf(Database)) {
             return db;
           }
         }
@@ -585,7 +585,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: AppContainer });
 
         class TestClass {
-          method(@Inject.database db: Database = Provide(Database)) {
+          method(@Inject.database db: Database = InstanceOf(Database)) {
             return db;
           }
         }
@@ -615,7 +615,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: TestContainer });
 
         class TestClass {
-          method(@Inject.logger log: Logger = Provide(Logger)) {
+          method(@Inject.logger log: Logger = InstanceOf(Logger)) {
             return log;
           }
         }
@@ -648,7 +648,7 @@ describe("createInject", () => {
         class TestClass {
           constructor(public name: string) {}
 
-          method(@Inject.logger log: Logger = Provide(Logger)) {
+          method(@Inject.logger log: Logger = InstanceOf(Logger)) {
             return `${this.name}: ${log.log("message")}`;
           }
         }
@@ -677,7 +677,7 @@ describe("createInject", () => {
         const Inject = createInject({ containerClass: AppContainer });
 
         class TestClass {
-          method(@Inject.userService service: UserService = Provide(UserService)) {
+          method(@Inject.userService service: UserService = InstanceOf(UserService)) {
             return service.findUser(999);
           }
         }
@@ -715,7 +715,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProviderOf(Database)) {
           return dbProvider;
         }
       }
@@ -748,7 +748,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: AppContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProviderOf(Database)) {
           // Create multiple instances on demand
           const db1 = dbProvider.provide();
           const db2 = dbProvider.provide();
@@ -774,8 +774,8 @@ describe("createInject", () => {
 
       class TestClass {
         method(
-          @Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database),
-          @Inject.logger.provider logProvider: Provider<Logger> = ProvideProvider(Logger)
+          @Inject.database.provider dbProvider: Provider<Database> = ProviderOf(Database),
+          @Inject.logger.provider logProvider: Provider<Logger> = ProviderOf(Logger)
         ) {
           return { dbProvider, logProvider };
         }
@@ -808,7 +808,7 @@ describe("createInject", () => {
         databaseProvider: Provider<Database>;
 
         constructor(
-          @Inject.database.provider databaseProvider: Provider<Database> = ProvideProvider(Database)
+          @Inject.database.provider databaseProvider: Provider<Database> = ProviderOf(Database)
         ) {
           this.databaseProvider = databaseProvider;
         }
@@ -838,7 +838,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProviderOf(Database)) {
           return dbProvider;
         }
       }
@@ -864,7 +864,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProviderOf(Database)) {
           return dbProvider;
         }
       }
@@ -879,7 +879,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: TestContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProviderOf(Database)) {
           return dbProvider;
         }
       }
@@ -905,7 +905,7 @@ describe("createInject", () => {
       const Inject = createInject({ containerClass: AppContainer });
 
       class TestClass {
-        method(@Inject.database.provider dbProvider: Provider<Database> = ProvideProvider(Database)) {
+        method(@Inject.database.provider dbProvider: Provider<Database> = ProviderOf(Database)) {
           return dbProvider;
         }
       }
@@ -941,7 +941,7 @@ describe("createInject", () => {
         userService: UserService;
 
         constructor(
-          @Inject.userService userService: UserService = Provide(UserService)
+          @Inject.userService userService: UserService = InstanceOf(UserService)
         ) {
           this.userService = userService;
         }
@@ -967,7 +967,7 @@ describe("createInject", () => {
         userService: UserService | undefined;
 
         constructor(
-          @Inject.userService userService: UserService = Provide(UserService)
+          @Inject.userService userService: UserService = InstanceOf(UserService)
         ) {
           this.userService = userService;
         }
@@ -987,8 +987,8 @@ describe("createInject", () => {
         logger: Logger;
 
         constructor(
-          @Inject.userService userService: UserService = Provide(UserService),
-          @Inject.logger logger: Logger = Provide(Logger)
+          @Inject.userService userService: UserService = InstanceOf(UserService),
+          @Inject.logger logger: Logger = InstanceOf(Logger)
         ) {
           this.userService = userService;
           this.logger = logger;
@@ -1016,7 +1016,7 @@ describe("createInject", () => {
         userService: UserService;
 
         constructor(
-          @Inject.userService userService: UserService = Provide(UserService)
+          @Inject.userService userService: UserService = InstanceOf(UserService)
         ) {
           this.userService = userService;
         }
@@ -1046,7 +1046,7 @@ describe("createInject", () => {
         userService: UserService | undefined;
 
         constructor(
-          @Inject.userService userService: UserService = Provide(UserService)
+          @Inject.userService userService: UserService = InstanceOf(UserService)
         ) {
           this.userService = userService;
         }
