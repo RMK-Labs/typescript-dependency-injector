@@ -53,4 +53,3 @@ export function isObjectInjections(value: unknown): value is ObjectInjections<an
     (value as any)[OBJECT_INJECTIONS_SYMBOL] === true
   );
 }
-

@@ -373,4 +373,3 @@ describe("ObjectInjections", () => {
     });
   });
 });
-
