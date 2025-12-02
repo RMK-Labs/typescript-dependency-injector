@@ -1,13 +1,13 @@
 /**
- * Symbol to identify Extend instances
+ * Symbol to identify ObjectInjections instances
  */
-export const EXTEND_SYMBOL = Symbol("extend");
+export const OBJECT_INJECTIONS_SYMBOL = Symbol("objectInjections");
 
 /**
  * Wraps an object to indicate that it should be extended with context values
  * when the provider's .provide() method is called.
  *
- * When a Factory is created with an Extend-wrapped object as an argument,
+ * When a Factory is created with an ObjectInjections-wrapped object as an argument,
  * calling .provide(contextObj) will merge contextObj with the wrapped defaults,
  * with context values taking priority.
  *
@@ -24,7 +24,7 @@ export const EXTEND_SYMBOL = Symbol("extend");
  *   database = new Singleton(Database, "localhost");
  *
  *   // requestId will come from context at runtime
- *   service = new Factory(Service, Extend({
+ *   service = new Factory(Service, ObjectInjections({
  *     logger: this.logger,
  *     database: this.database,
  *   }));
@@ -35,21 +35,22 @@ export const EXTEND_SYMBOL = Symbol("extend");
  * const instance = container.service.provide({ requestId: "req-123" });
  * ```
  */
-export class Extend<T extends Record<string, any>> {
-  readonly [EXTEND_SYMBOL] = true;
+export class ObjectInjections<T extends Record<string, any>> {
+  readonly [OBJECT_INJECTIONS_SYMBOL] = true;
 
   constructor(public readonly defaults: T) {}
 }
 
 /**
- * Type guard to check if a value is an Extend instance
+ * Type guard to check if a value is an ObjectInjections instance
  */
-export function isExtend(value: unknown): value is Extend<any> {
+export function isObjectInjections(value: unknown): value is ObjectInjections<any> {
   return (
     !!value &&
     typeof value === "object" &&
-    EXTEND_SYMBOL in value &&
+    OBJECT_INJECTIONS_SYMBOL in value &&
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    (value as any)[EXTEND_SYMBOL] === true
+    (value as any)[OBJECT_INJECTIONS_SYMBOL] === true
   );
 }
+

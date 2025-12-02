@@ -1,7 +1,7 @@
-import { DeclarativeContainer, Factory, Singleton, Extend } from "../src";
-import { isExtend } from "../src/extend";
+import { DeclarativeContainer, Factory, Singleton, ObjectInjections } from "../src";
+import { isObjectInjections } from "../src/object-injections";
 
-describe("Extend", () => {
+describe("ObjectInjections", () => {
   // Simple test classes
   class Logger {
     log(message: string): string {
@@ -16,23 +16,23 @@ describe("Extend", () => {
     }
   }
 
-  describe("Extend class", () => {
-    it("should create an Extend instance with defaults", () => {
-      const extend = new Extend({ foo: "bar", num: 42 });
-      expect(extend.defaults).toEqual({ foo: "bar", num: 42 });
+  describe("ObjectInjections class", () => {
+    it("should create an ObjectInjections instance with defaults", () => {
+      const objectInjections = new ObjectInjections({ foo: "bar", num: 42 });
+      expect(objectInjections.defaults).toEqual({ foo: "bar", num: 42 });
     });
 
-    it("should be identifiable with isExtend", () => {
-      const extend = new Extend({ foo: "bar" });
-      expect(isExtend(extend)).toBe(true);
-      expect(isExtend({})).toBe(false);
-      expect(isExtend(null)).toBe(false);
-      expect(isExtend(undefined)).toBe(false);
-      expect(isExtend("string")).toBe(false);
+    it("should be identifiable with isObjectInjections", () => {
+      const objectInjections = new ObjectInjections({ foo: "bar" });
+      expect(isObjectInjections(objectInjections)).toBe(true);
+      expect(isObjectInjections({})).toBe(false);
+      expect(isObjectInjections(null)).toBe(false);
+      expect(isObjectInjections(undefined)).toBe(false);
+      expect(isObjectInjections("string")).toBe(false);
     });
   });
 
-  describe("Factory with Extend", () => {
+  describe("Factory with ObjectInjections", () => {
     interface ServiceDeps {
       logger: Logger;
       database: Database;
@@ -52,7 +52,7 @@ describe("Extend", () => {
     class TestContainer extends DeclarativeContainer {
       logger = new Singleton(Logger);
       database = new Singleton(Database, "localhost:5432");
-      service = new Factory(Service, new Extend({
+      service = new Factory(Service, new ObjectInjections({
         logger: this.logger,
         database: this.database,
       }));
@@ -102,7 +102,7 @@ describe("Extend", () => {
           return new Logger();
         });
         database = new Singleton(Database, "localhost:5432");
-        service = new Factory(Service, new Extend({
+        service = new Factory(Service, new ObjectInjections({
           logger: this.logger,
           database: this.database,
         }));
@@ -150,7 +150,7 @@ describe("Extend", () => {
     it("should work with empty context object", () => {
       class SimpleContainer extends DeclarativeContainer {
         logger = new Singleton(Logger);
-        service = new Factory(Service, new Extend({
+        service = new Factory(Service, new ObjectInjections({
           logger: this.logger,
           database: new Database("test"),
           requestId: "default-request",
@@ -167,7 +167,7 @@ describe("Extend", () => {
     it("should work without providing any context", () => {
       class SimpleContainer extends DeclarativeContainer {
         logger = new Singleton(Logger);
-        service = new Factory(Service, new Extend({
+        service = new Factory(Service, new ObjectInjections({
           logger: this.logger,
           database: new Database("test"),
           requestId: "default-request",
@@ -182,7 +182,7 @@ describe("Extend", () => {
     });
   });
 
-  describe("Multiple Extend arguments", () => {
+  describe("Multiple ObjectInjections arguments", () => {
     interface Config {
       timeout: number;
     }
@@ -198,12 +198,12 @@ describe("Extend", () => {
       logger = new Singleton(Logger);
       service = new Factory(
         ServiceWithMultipleArgs,
-        new Extend({ timeout: 5000 }),
+        new ObjectInjections({ timeout: 5000 }),
         this.logger
       );
     }
 
-    it("should handle multiple arguments with Extend in the mix", () => {
+    it("should handle multiple arguments with ObjectInjections in the mix", () => {
       const container = new TestContainer();
       const service = container.service.provide({ timeout: 3000 });
 
@@ -211,7 +211,7 @@ describe("Extend", () => {
       expect(service.logger).toBeInstanceOf(Logger);
     });
 
-    it("should resolve non-Extend arguments normally", () => {
+    it("should resolve non-ObjectInjections arguments normally", () => {
       const container = new TestContainer();
       const service = container.service.provide({});
 
@@ -220,7 +220,7 @@ describe("Extend", () => {
     });
   });
 
-  describe("Extend with Singleton", () => {
+  describe("ObjectInjections with Singleton", () => {
     interface ServiceDeps {
       logger: Logger;
       instanceId: string;
@@ -232,7 +232,7 @@ describe("Extend", () => {
 
     class TestContainer extends DeclarativeContainer {
       logger = new Singleton(Logger);
-      service = new Singleton(SingletonService, new Extend({
+      service = new Singleton(SingletonService, new ObjectInjections({
         logger: this.logger,
       }));
     }
@@ -267,13 +267,13 @@ describe("Extend", () => {
   });
 
   describe("Edge cases", () => {
-    it("should handle Extend with empty defaults", () => {
+    it("should handle ObjectInjections with empty defaults", () => {
       class EmptyService {
         constructor(public deps: Record<string, any>) {}
       }
 
       class TestContainer extends DeclarativeContainer {
-        service = new Factory(EmptyService, new Extend({}));
+        service = new Factory(EmptyService, new ObjectInjections({}));
       }
 
       const container = new TestContainer();
@@ -296,7 +296,7 @@ describe("Extend", () => {
       }
 
       class TestContainer extends DeclarativeContainer {
-        service = new Factory(NestedService, new Extend({}));
+        service = new Factory(NestedService, new ObjectInjections({}));
       }
 
       const container = new TestContainer();
@@ -319,7 +319,7 @@ describe("Extend", () => {
       }
 
       class TestContainer extends DeclarativeContainer {
-        service = new Factory(RefService, new Extend({}));
+        service = new Factory(RefService, new ObjectInjections({}));
       }
 
       const container = new TestContainer();
@@ -331,7 +331,7 @@ describe("Extend", () => {
     });
   });
 
-  describe("Factory without Extend (backward compatibility)", () => {
+  describe("Factory without ObjectInjections (backward compatibility)", () => {
     class SimpleService {
       constructor(
         public logger: Logger,
@@ -344,7 +344,7 @@ describe("Extend", () => {
       service = new Factory(SimpleService, this.logger, "hello");
     }
 
-    it("should work normally without Extend", () => {
+    it("should work normally without ObjectInjections", () => {
       const container = new TestContainer();
       const service = container.service.provide();
 
@@ -352,7 +352,7 @@ describe("Extend", () => {
       expect(service.message).toBe("hello");
     });
 
-    it("should pass provide args before injected args when not using Extend", () => {
+    it("should pass provide args before injected args when not using ObjectInjections", () => {
       class ServiceWithArgs {
         constructor(
           public arg1: string,
@@ -373,3 +373,4 @@ describe("Extend", () => {
     });
   });
 });
+

@@ -1,5 +1,5 @@
 import { resolveProviders } from "./utils";
-import { isExtend } from "./extend";
+import { isObjectInjections } from "./object-injections";
 
 export const PROVIDER_SYMBOL = Symbol("@@Provider");
 
@@ -113,20 +113,20 @@ export class Factory<T, ProvideArgs extends any[] = any[]> extends BaseProvider<
       return overridden;
     }
 
-    // Check if any injectedArgs uses Extend
-    const hasExtend = this.injectedArgs.some((arg) => isExtend(arg));
+    // Check if any injectedArgs uses ObjectInjections
+    const hasObjectInjections = this.injectedArgs.some((arg) => isObjectInjections(arg));
 
     const resolvedArgs: unknown[] = this.injectedArgs.map((arg) => this._resolveArg(arg, args));
 
     if (this.isConstructor) {
-      // If using Extend, don't pass args separately - they're merged into resolvedArgs
-      if (hasExtend) {
+      // If using ObjectInjections, don't pass args separately - they're merged into resolvedArgs
+      if (hasObjectInjections) {
         return new (this.factory as new (...args: any[]) => T)(...(resolvedArgs as any[]));
       }
       return new (this.factory as new (...args: any[]) => T)(...args, ...(resolvedArgs as any[]));
     } else {
-      // If using Extend, don't pass args separately - they're merged into resolvedArgs
-      if (hasExtend) {
+      // If using ObjectInjections, don't pass args separately - they're merged into resolvedArgs
+      if (hasObjectInjections) {
         return (this.factory as (...args: any[]) => T)(...(resolvedArgs as any[]));
       }
       return (this.factory as (...args: any[]) => T)(...args, ...(resolvedArgs as any[]));
@@ -134,12 +134,12 @@ export class Factory<T, ProvideArgs extends any[] = any[]> extends BaseProvider<
   }
 
   /**
-   * Resolves an argument, handling Extend instances specially.
-   * If the argument is an Extend instance and context args are provided,
+   * Resolves an argument, handling ObjectInjections instances specially.
+   * If the argument is an ObjectInjections instance and context args are provided,
    * merges the context with defaults (context takes priority).
    */
   private _resolveArg(arg: unknown, contextArgs: unknown[]): unknown {
-    if (isExtend(arg)) {
+    if (isObjectInjections(arg)) {
       const defaults: Record<string, unknown> = arg.defaults as Record<string, unknown>;
       const context: Record<string, unknown> = (contextArgs.length > 0 ? contextArgs[0] : {}) as Record<string, unknown>;
 

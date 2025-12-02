@@ -9,4 +9,4 @@ export {
   type InjectableMarkers,
   type InjectAPI,
 } from "./inject";
-export { Extend } from "./extend";
+export { ObjectInjections } from "./object-injections";
